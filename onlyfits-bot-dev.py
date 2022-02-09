@@ -11,7 +11,6 @@ import pickle
 from test_parser_for_bot import *
 
 
-# хуй бля
 
 with open('current_clients.pkl', 'rb') as f:
     current_users = pickle.load(f)
