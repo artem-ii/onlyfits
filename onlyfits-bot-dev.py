@@ -515,11 +515,13 @@ def call_from_coach(call):
 def send_text_msg(msg):
     for i in coaches.keys():
             print('sending to ' + coaches[i])
-            m = tb.send_message(chat_id=i,
-                                text = msg.text,
+#            m = \
+            tb.send_message(chat_id=i,
+                                text = msg.text)
+#                            ,
 # Добавляю это для одного раза, чтобы убрать кнопку регистрация у кураторов
-                                reply_markup=types.ReplyKeyboardRemove())
-            tb.delete_message(i, m.message_id)
+#                                reply_markup=types.ReplyKeyboardRemove())
+#            tb.delete_message(i, m.message_id)
     trenerskaya[msg.chat.id]['log'] = str(get_time() + ' ' +
                                           trenerskaya[msg.chat.id]['name'] +
                                           ' sent ' + msg.text + ' to coaches')
@@ -562,10 +564,14 @@ def get_profile(usr, profile):
     path = str(clients_folder + profile.split('_')[1])
     with open(path, 'r') as file:
         profile_text = file.read().replace('\n', '\n\n')
-    tb.send_message(usr, profile_text)
+    back_button = {'to_clients' : 'К списку клиентов'}
+    message_sent = tb.send_message(usr, profile_text,
+                    reply_markup=makeQuestionKeyboard(back_button)
+                    )
     trenerskaya[usr]['log'] = str(get_time() + ' ' +
                                   trenerskaya[usr]['name'] +
                                   ' requested profile ' + profile.split('_')[1])
+    trenerskaya[usr]['message_to_delete'] = message_sent.message_id
     tb.send_message(3755631, trenerskaya[usr]['log'])
     line = str(trenerskaya[usr]['log'] + '\n')
     print(line)
