@@ -64,9 +64,11 @@ coaches_real = {520834290:"Ксения Календарева", 594759110:"Ел
            3755631:"Artemii", 2019105955:"Artemii Nikitin",
            970257969: "Наталья Минажетдинова", 388199486: "Артем"}
 
-coaches = {3755631:"Artemii", 2019105955:"Artemii Nikitin"}
+coaches = {3755631:"Artemii"}
+#, 2019105955:"Artemii Nikitin"}
 
-ids = [3755631, 2019105955]
+ids = [3755631]
+#, 2019105955]
 
 # User State dictionary
 trenerskaya = {x: dict(name=coaches[x], menu_cur='main',
@@ -117,12 +119,13 @@ def handle_messages(messages):
             tb.send_message(message.chat.id, text=str(current_users + dump_reply))
         elif message.text == 'betatester':
             test_mainscreen(message)
-        elif message.chat.id not in coaches or message.text == 'Регистрация' or message.text == 'регистрация':
+        elif message.text == 'Регистрация':
             line = str('\n'+ str(message.from_user) + ' - ' + str(message.chat.id))
             with open('users.txt', 'a', encoding='utf-8') as f:
                 f.write(line)
             f.close()
-            getnamemsg = tb.send_message(message.chat.id, "Здравствуйте! Введите, пожалуйста, Ваше имя")
+            getnamemsg = tb.send_message(message.chat.id, "Здравствуйте! Введите, пожалуйста, Ваше имя",
+                                         reply_markup=types.ReplyKeyboardRemove())
             tb.register_next_step_handler(getnamemsg, get_name)
         elif message.chat.id in ids:
             move(message.chat.id, 'to_admin')

@@ -118,12 +118,14 @@ def handle_messages(messages):
             tb.send_message(message.chat.id, text=str(current_users + dump_reply))
         elif message.text == 'betatester':
             test_mainscreen(message)
-        elif message.chat.id not in coaches or message.text == 'Регистрация' or message.text == 'регистрация':
+        elif message.text == 'Регистрация':
             line = str('\n'+ str(message.from_user) + ' - ' + str(message.chat.id))
             with open('users.txt', 'a', encoding='utf-8') as f:
                 f.write(line)
             f.close()
-            getnamemsg = tb.send_message(message.chat.id, "Здравствуйте! Введите, пожалуйста, Ваше имя")
+            getnamemsg = tb.send_message(message.chat.id, "Здравствуйте! Введите, пожалуйста, Ваше имя",
+                                         reply_markup=types.ReplyKeyboardRemove())
+            tb.register_next_step_handler(getnamemsg, get_name)
             tb.register_next_step_handler(getnamemsg, get_name)
         elif message.chat.id in ids:
             move(message.chat.id, 'to_admin')
