@@ -515,8 +515,13 @@ def call_from_coach(call):
 def send_text_msg(msg):
     for i in coaches.keys():
             print('sending to ' + coaches[i])
+#           m =
             tb.send_message(chat_id=i,
                             text = msg.text)
+# Добавляю это для одного раза, чтобы убрать кнопку регистрация у кураторов
+#                                reply_markup=types.ReplyKeyboardRemove())
+            #tb.delete_message(i, m.message_id)
+           # tb.delete_message(i, m.message_id-1)
     trenerskaya[msg.chat.id]['log'] = str(get_time() + ' ' +
                                           trenerskaya[msg.chat.id]['name'] +
                                           ' sent ' + msg.text + ' to coaches')
