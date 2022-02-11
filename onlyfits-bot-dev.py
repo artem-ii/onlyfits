@@ -25,7 +25,7 @@ def get_time():
 
 TOKEN = "5118074175:AAGdSNqLzaRCEWw5wR1XNH_5v5wF1e8eq1M"
 testTOKEN = "288367920:AAEuc2Lqw94_jG3Qi0j_7Uqh4FSuGKHl-zw"
-tb = telebot.TeleBot(TOKEN)
+tb = telebot.TeleBot(testTOKEN)
 
 files_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/Материалы/resources/'
 clients_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/.2930/'
@@ -58,19 +58,19 @@ tests_dict = {'eat26':{'convert': eat26_convert, 'keys': eat26_keys},
               'bdi':{'convert': bdi_convert, 'keys': bdi_keys}}
 
 # User id info
-coaches = {520834290:"Ксения Календарева", 594759110:"Елена", 1472202629:"trener.idel",
+coaches_real = {520834290:"Ксения Календарева", 594759110:"Елена", 1472202629:"trener.idel",
            541765907:"Дарья", 141659022:"Янина", 287460510:"Ирина",
            409750031:"Анастасия", 310119054:"Наталья Лаврененко",
            3755631:"Artemii", 2019105955:"Artemii Nikitin",
            970257969: "Наталья Минажетдинова", 388199486: "Артем"}
 
-coaches_test = {3755631:"Artemii", 2019105955:"Artemii Nikitin"}
+coaches = {3755631:"Artemii", 2019105955:"Artemii Nikitin"}
 
 ids = [3755631, 2019105955]
 
 # User State dictionary
 trenerskaya = {x: dict(name=coaches[x], menu_cur='main',
-                       menu_prev=str(), step=str(), log=str()) for x in (coaches.keys())}
+                       menu_prev=str(), step=str(), message_to_delete=0, log=str()) for x in (coaches.keys())}
 print(trenerskaya)
 
 
@@ -402,6 +402,9 @@ def gettestresults(usr, call):
 #Menus
 def where(usr):
     move_to_menu = trenerskaya[usr]['menu_cur']
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
     if move_to_menu == 'clients':
         path = str(clients_folder + '/')
         client_profiles = os.listdir(path)
@@ -414,13 +417,18 @@ def where(usr):
                 client_button = client_file[:-3]
                 client_profile_call = 'getprofile_' + client_file
                 client_dict[client_profile_call] = client_button
+        client_dict['to_main'] = 'Главное меню'
         print(client_dict)
         keyboards['clients'] = client_dict
 
-    tb.send_message(chat_id=usr,
-                    text = 'Меню',
-                         reply_markup= makeKeyboard(move_to_menu),
-                         parse_mode='HTML')
+    message_sent = tb.send_message(chat_id=usr,
+                              text = 'Меню',
+                              reply_markup= makeKeyboard(move_to_menu),
+                              parse_mode='HTML')
+    trenerskaya[usr]['message_to_delete'] = message_sent.message_id
+    print(message_to_delete)
+    print(message_sent.message_id)
+
 
 
 # Обрабатывает перемещения по меню

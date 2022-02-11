@@ -71,7 +71,7 @@ ids = [3755631, 2019105955]
 
 # User State dictionary
 trenerskaya = {x: dict(name=coaches[x], menu_cur='main',
-                       menu_prev=str(), step=str(), log=str()) for x in (coaches.keys())}
+                       menu_prev=str(), step=str(), message_to_delete=0, log=str()) for x in (coaches.keys())}
 print(trenerskaya)
 
 
@@ -189,7 +189,7 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                             'get_energybalance':'Энергетический Баланс',
                             'get_physact': 'Физическая Активность',
                             'get_ro3': 'План Питания "Правило Трёх" ',
-                            'get_generaltech': 'Общие техники и принципы проведения консультаций',
+                            'get_generaltech': 'Общие техники и принципы проведения консультаций',
                             'to_main': 'Главное меню'
                            }
              }
@@ -403,6 +403,9 @@ def gettestresults(usr, call):
 #Menus
 def where(usr):
     move_to_menu = trenerskaya[usr]['menu_cur']
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
     if move_to_menu == 'clients':
         path = str(clients_folder + '/')
         client_profiles = os.listdir(path)
@@ -415,13 +418,18 @@ def where(usr):
                 client_button = client_file[:-3]
                 client_profile_call = 'getprofile_' + client_file
                 client_dict[client_profile_call] = client_button
+        client_dict['to_main'] = 'Главное меню'
         print(client_dict)
         keyboards['clients'] = client_dict
 
-    tb.send_message(chat_id=usr,
-                    text = 'Меню',
-                         reply_markup= makeKeyboard(move_to_menu),
-                         parse_mode='HTML')
+    message_sent = tb.send_message(chat_id=usr,
+                              text = 'Меню',
+                              reply_markup= makeKeyboard(move_to_menu),
+                              parse_mode='HTML')
+    trenerskaya[usr]['message_to_delete'] = message_sent.message_id
+    print(message_to_delete)
+    print(message_sent.message_id)
+
 
 
 # Обрабатывает перемещения по меню
