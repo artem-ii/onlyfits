@@ -127,7 +127,6 @@ def handle_messages(messages):
             getnamemsg = tb.send_message(message.chat.id, "Здравствуйте! Введите, пожалуйста, Ваше имя",
                                          reply_markup=types.ReplyKeyboardRemove())
             tb.register_next_step_handler(getnamemsg, get_name)
-            tb.register_next_step_handler(getnamemsg, get_name)
         elif message.chat.id in ids:
             move(message.chat.id, 'to_admin')
         elif message.text != '/start':
@@ -193,7 +192,6 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                             'get_physact': 'Физическая Активность',
                             'get_ro3': 'План Питания "Правило Трёх" ',
                             'get_generaltech': 'Общие техники и принципы проведения консультаций',
-                            'get_firstconsult': 'Первая консультация',
                             'to_main': 'Главное меню'
                            }
              }
@@ -217,6 +215,7 @@ def test_mainscreen(message):
         current_users[message.from_user.id]['log'] = str()
         current_users[message.from_user.id]['tests_to_do'] = tests
         current_users[message.from_user.id]['current_test'] = str()
+        current_users[message.from_user.id]['message_to_delete'] = 0
         current_users[message.from_user.id]['current_question_code'] = str()
         current_users[message.from_user.id]['main']['responses']['client_telegram_id'] = [str(message.from_user.id)]
         current_users[message.from_user.id]['eat26']['responses']['client_telegram_id'] = [str(message.from_user.id)]
@@ -239,6 +238,8 @@ def test_mainscreen(message):
 
 def question_generator(usr, test):
 
+    message_to_delete = current_users[usr]['message_to_delete']
+
     question_options = {}
     user_test_dict = current_users[usr]
     print(user_test_dict)
@@ -247,6 +248,7 @@ def question_generator(usr, test):
     test_convert = test_data_dict['convert']
     test_keys = test_data_dict['keys']
     current_question_row = test_convert.iloc[user_test_dict[requested_test]['current_question_index'],:]
+    current_users[usr]['current_test'] = requested_test
     current_question_code = current_question_row['Number']
     current_question = current_question_row['Question']
     current_question_type = current_question_row['subscale']
@@ -260,9 +262,12 @@ def question_generator(usr, test):
     tb.send_message(3755631, line)
 
     if current_question_type == 'text':
+        if message_to_delete not in [-1, 0]:
+            tb.delete_message(usr, message_to_delete)
         current_users[usr]['current_test'] = requested_test
         current_users[usr]['current_question_code'] = current_question_code
         gettextanswer = tb.send_message(usr, text = current_question)
+        current_users[usr]['message_to_delete'] = gettextanswer.message_id
         tb.register_next_step_handler(gettextanswer, save_text_answer)
 
     elif current_question_type == 'multiple':
@@ -272,12 +277,17 @@ def question_generator(usr, test):
         question_generator(usr, test)
 
     elif current_question_type == 'date':
+        if message_to_delete not in [-1, 0]:
+            tb.delete_message(usr, message_to_delete)
         current_users[usr]['current_test'] = requested_test
         current_users[usr]['current_question_code'] = current_question_code
         gettextanswer = tb.send_message(usr, text = current_question)
+        current_users[usr]['message_to_delete'] = gettextanswer.message_id
         tb.register_next_step_handler(gettextanswer, check_answer)
 
     else:
+        if message_to_delete not in [-1, 0]:
+            tb.delete_message(usr, message_to_delete)
         option_string = 'abcdefg'
         for option in option_string:
             if not pd.isnull(current_question_row[option]):
@@ -285,9 +295,16 @@ def question_generator(usr, test):
                                       str(current_question_code) + '_' + str(option)
                 question_option_value = current_question_row[option]
                 question_options[question_option_key] = question_option_value
-                print(question_options)
-        tb.send_message(usr, text = current_question, reply_markup=makeQuestionKeyboard(question_options),
-                                parse_mode='HTML')
+        question_options['questionanswered_' + str(requested_test) + '_' +
+                         'qback' + '_' +
+                         str(user_test_dict[requested_test]['current_question_index'])] = 'К предыдушему вопросу'
+        #question_options['testmenu'] = 'К меню с тестами'
+        print(question_options)
+        message_sent = tb.send_message(usr, text = current_question,
+                                       reply_markup=makeQuestionKeyboard(question_options),
+                                       parse_mode='HTML')
+        current_users[usr]['message_to_delete'] = message_sent.message_id
+
 
 def check_answer(message):
     if '/' in message.text:
@@ -304,6 +321,14 @@ def check_answer(message):
 
 
 def save_text_answer(message):
+    usr = message.from_user.id
+    if current_users[usr]['message_to_delete'] != 0:
+        message_to_delete = current_users[usr]['message_to_delete']
+        tb.delete_message(usr, message_to_delete)
+        tb.delete_message(usr, message_to_delete + 1)
+        current_users[usr]['message_to_delete'] = -1
+
+
     print('save_text_answer function active')
     current_test = current_users[message.from_user.id]['current_test']
     current_question_code = current_users[message.from_user.id]['current_question_code']
@@ -315,78 +340,85 @@ def save_text_answer(message):
 
 def save_answer(usr, answer):
     print('save_answer function active')
+    user_test_dict = current_users[usr]
     tests_left_dict = {}
     answer_data = answer.split('_')
-    answered_test_name = answer_data[1]
-    answered_question_code = answer_data[2]
-    option_selected = answer_data[3]
-    user_test_dict = current_users[usr]
-    test_data_dict = tests_dict[answered_test_name]
-    test_convert = test_data_dict['convert']
-    current_question_row = test_convert.iloc[user_test_dict[answered_test_name]['current_question_index'],:]
-    current_question_code = current_question_row['Number']
+    if answer_data[2] == 'qback':
+        current_test = answer_data[1]
+        user_test_dict[current_test]['current_question_index'] -= 1
+        test = 'totest_' + current_test
+        question_generator(usr, test)
+    else:
+        answered_test_name = answer_data[1]
+        answered_question_code = answer_data[2]
+        option_selected = answer_data[3]
 
-    line = str(get_time() + ' ' + str(usr) + ' '
-               + ' answered test ' + answered_test_name + ' question '
-               + answered_question_code + '\n')
-    print(line)
-    with open('log.txt', 'a', encoding='utf-8') as f:
-        f.write(line)
-        f.close()
-    tb.send_message(3755631, line)
+        test_data_dict = tests_dict[answered_test_name]
+        test_convert = test_data_dict['convert']
+        current_question_row = test_convert.iloc[user_test_dict[answered_test_name]['current_question_index'],:]
+        current_question_code = current_question_row['Number']
 
-    if answered_question_code == current_question_code:
-        answers_df = user_test_dict[answered_test_name]['responses']
-        answers_df[answered_question_code] = option_selected
-        user_test_dict[answered_test_name]['current_question_index'] += 1
-        if user_test_dict[answered_test_name]['current_question_index'] == len(test_convert):
-            user_test_dict[answered_test_name]['current_question_index'] = 0
-            print(user_test_dict['tests_to_do'])
-            print(answered_test_name)
-            user_test_dict['tests_to_do'].remove(answered_test_name)
-            tests_left = user_test_dict['tests_to_do']
-            for test in tests_left:
-                test_key = str('totest_' + test)
-                tests_left_dict[test_key] = keyboards['tests'][test_key]
-            current_users[usr] = user_test_dict
-            with open('current_clients.pkl', 'wb') as f:
-                pickle.dump(current_users, f)
-            if tests_left == []:
-                get_results = {'gettestresults': 'Ваша Индивидуальная Программа ONLYFITS.you'}
-                tb.send_message(usr, text = "Спасибо, вы прошли все тесты",
-                            reply_markup=makeQuestionKeyboard(get_results),
-                            parse_mode='HTML')
-                current_users[usr]['tests_to_do'] = tests
-                line = str(get_time() + ' ' + str(usr) + ' '
-                    + ' completed all tests ' + '\n')
-                print(line)
-                with open('log.txt', 'a', encoding='utf-8') as f:
-                    f.write(line)
-                    f.close()
-                tb.send_message(3755631, line)
+        line = str(get_time() + ' ' + str(usr) + ' '
+                   + ' answered test ' + answered_test_name + ' question '
+                   + answered_question_code + '\n')
+        print(line)
+        with open('log.txt', 'a', encoding='utf-8') as f:
+            f.write(line)
+            f.close()
+        tb.send_message(3755631, line)
+
+        if answered_question_code == current_question_code:
+            answers_df = user_test_dict[answered_test_name]['responses']
+            answers_df[answered_question_code] = option_selected
+            user_test_dict[answered_test_name]['current_question_index'] += 1
+            if user_test_dict[answered_test_name]['current_question_index'] == len(test_convert):
+                user_test_dict[answered_test_name]['current_question_index'] = 0
+                print(user_test_dict['tests_to_do'])
+                print(answered_test_name)
+                user_test_dict['tests_to_do'].remove(answered_test_name)
+                tests_left = user_test_dict['tests_to_do']
+                for test in tests_left:
+                    test_key = str('totest_' + test)
+                    tests_left_dict[test_key] = keyboards['tests'][test_key]
+                current_users[usr] = user_test_dict
+                with open(current_clients_db, 'wb') as f:
+                    pickle.dump(current_users, f)
+                if tests_left == []:
+                    get_results = {'gettestresults': 'Ваша Индивидуальная Программа ONLYFITS.you'}
+                    tb.send_message(usr, text = "Спасибо, вы прошли все тесты",
+                                reply_markup=makeQuestionKeyboard(get_results),
+                                parse_mode='HTML')
+                    current_users[usr]['tests_to_do'] = tests
+                    line = str(get_time() + ' ' + str(usr) + ' '
+                        + ' completed all tests ' + '\n')
+                    print(line)
+                    with open('log.txt', 'a', encoding='utf-8') as f:
+                        f.write(line)
+                        f.close()
+                    tb.send_message(3755631, line)
+                else:
+                    tb.send_message(usr, text = "Спасибо, вы прошли тест " +
+                                            keyboards['tests'][str('totest_' + answered_test_name)],
+                                reply_markup=makeQuestionKeyboard(tests_left_dict),
+                                parse_mode='HTML')
+                    line = str(get_time() + ' ' + str(usr) + ' '
+                        + ' completed test '
+                        + answered_test_name + '\n')
+                    print(line)
+                    with open('log.txt', 'a', encoding='utf-8') as f:
+                        f.write(line)
+                        f.close()
+                    tb.send_message(3755631, line)
+                now = datetime.now()
+                now_h = now.strftime("%d-%m-%Y")
+                user_test_result_file_name = 'user_test_responses/' + str(usr) + '_' + answered_test_name + '_' + now_h
+                user_test_dict[answered_test_name]['responses'].to_csv(user_test_result_file_name)
             else:
-                tb.send_message(usr, text = "Спасибо, вы прошли тест " +
-                                        keyboards['tests'][str('totest_' + answered_test_name)],
-                            reply_markup=makeQuestionKeyboard(tests_left_dict),
-                            parse_mode='HTML')
-                line = str(get_time() + ' ' + str(usr) + ' '
-                    + ' completed test '
-                    + answered_test_name + '\n')
-                print(line)
-                with open('log.txt', 'a', encoding='utf-8') as f:
-                    f.write(line)
-                    f.close()
-                tb.send_message(3755631, line)
-            now = datetime.now()
-            now_h = now.strftime("%d-%m-%Y")
-            user_test_result_file_name = 'user_test_responses/' + str(usr) + '_' + answered_test_name + '_' + now_h
-            user_test_dict[answered_test_name]['responses'].to_csv(user_test_result_file_name)
-        else:
-            test = 'totest_' + answered_test_name
-            current_users[usr] = user_test_dict
-            with open('current_clients.pkl', 'wb') as f:
-                pickle.dump(current_users, f)
-            question_generator(usr, test)
+                test = 'totest_' + answered_test_name
+                current_users[usr] = user_test_dict
+                with open(current_clients_db, 'wb') as f:
+                    pickle.dump(current_users, f)
+                question_generator(usr, test)
 
 
 def gettestresults(usr, call):
@@ -487,7 +519,12 @@ def call_from_coach(call):
         tb.answer_callback_query(call.id, '\U0000231B')
     elif call.data.startswith('questionanswered_'):
         save_answer(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
+        if call.data.split('_')[3].isalpha():
+            pop_text = 'Вы выбрали вариант ' + call.data.split('_')[3]
+        else:
+            toquestionnum = int(call.data.split('_')[3]) - 1
+            pop_text = 'Назад к вопросу ' + str(toquestionnum)
+        tb.answer_callback_query(call.id, pop_text)
     elif call.data.startswith('gettestresults'):
         gettestresults(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
@@ -517,13 +554,13 @@ def call_from_coach(call):
 def send_text_msg(msg):
     for i in coaches.keys():
             print('sending to ' + coaches[i])
-#           m =
+#            m = \
             tb.send_message(chat_id=i,
-                            text = msg.text)
+                                text = msg.text)
+#                            ,
 # Добавляю это для одного раза, чтобы убрать кнопку регистрация у кураторов
 #                                reply_markup=types.ReplyKeyboardRemove())
-            #tb.delete_message(i, m.message_id)
-           # tb.delete_message(i, m.message_id-1)
+#            tb.delete_message(i, m.message_id)
     trenerskaya[msg.chat.id]['log'] = str(get_time() + ' ' +
                                           trenerskaya[msg.chat.id]['name'] +
                                           ' sent ' + msg.text + ' to coaches')
