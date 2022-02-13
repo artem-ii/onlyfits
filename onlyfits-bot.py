@@ -195,6 +195,7 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                             'get_physact': 'Физическая Активность',
                             'get_ro3': 'План Питания "Правило Трёх" ',
                             'get_generaltech': 'Общие техники и принципы проведения консультаций',
+                            'get_firstconsult': 'Первая консультация',
                             'to_main': 'Главное меню'
                            }
              }
@@ -238,8 +239,10 @@ def test_mainscreen(message):
         user_bdi_test_file_name = 'user_test_responses/' + str(message.from_user.id) + '_' + 'bdi' + '_' + now_h
         current_users[message.from_user.id]['main']['responses'].to_csv(user_bdi_test_file_name)
     current_users[message.from_user.id]['message_to_delete'] = 0
-    tb.send_message(message.chat.id, "Пройдите, пожалуйста, все три теста: ", reply_markup=makeKeyboard('tests'),
-                            parse_mode='HTML')
+    sent_message = tb.send_message(message.chat.id, "Пройдите, пожалуйста, все три теста: ",
+                                   reply_markup=makeKeyboard('tests'),
+                                   parse_mode='HTML')
+    current_users[message.from_user.id]['message_to_delete'] = sent_message.message_id
 
 
 def question_generator(usr, test):
@@ -507,7 +510,12 @@ def call_from_user(call):
         tb.answer_callback_query(call.id, '\U0000231B')
     elif call.data.startswith('questionanswered_'):
         save_answer(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
+        if call.data.split('_')[3].isalpha():
+            pop_text = 'Вы выбрали вариант ' + call.data.split('_')[3]
+        else:
+            toquestionnum = int(call.data.split('_')[3]) - 1
+            pop_text = 'Назад к вопросу ' + str(toquestionnum)
+        tb.answer_callback_query(call.id, pop_text)
     elif call.data.startswith('gettestresults'):
         gettestresults(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
