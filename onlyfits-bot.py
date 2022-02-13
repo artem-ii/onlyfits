@@ -11,7 +11,7 @@ import pickle
 from test_parser_for_bot import *
 
 
-
+current_clients_db = 'current_clients.pkl'
 
 with open('current_clients.pkl', 'rb') as f:
     current_users = pickle.load(f)
@@ -62,11 +62,14 @@ tests_dict = {'eat26':{'convert': eat26_convert, 'keys': eat26_keys},
 coaches = {520834290:"Ксения Календарева", 594759110:"Елена", 1472202629:"trener.idel",
            541765907:"Дарья", 141659022:"Янина", 287460510:"Ирина",
            409750031:"Анастасия", 310119054:"Наталья Лаврененко",
-           3755631:"Artemii", 2019105955:"Artemii Nikitin",
+           3755631:"Artemii",
            970257969: "Наталья Минажетдинова", 388199486: "Артем",
            234047265: "Оксана Круглова"}
+#           2019105955:"Artemii Nikitin"}
 
-coaches_test = {3755631:"Artemii", 2019105955:"Artemii Nikitin"}
+coaches_test = {3755631:"Artemii"}
+    #, 2019105955:"Artemii Nikitin"}
+
 
 ids = [3755631, 2019105955]
 
@@ -223,6 +226,7 @@ def test_mainscreen(message):
         current_users[message.from_user.id]['main']['responses']['client_telegram_first_name'] = [str(message.from_user.first_name)]
         current_users[message.from_user.id]['main']['responses']['client_telegram_last_name'] = [str(message.from_user.last_name)]
         current_users[message.from_user.id]['main']['responses']['client_telegram_username'] = [str(message.from_user.username)]
+        current_users[message.from_user.id]['message_to_delete'] = 0
         print(current_users)
         print(message.from_user.id)
         now = datetime.now()
@@ -233,12 +237,18 @@ def test_mainscreen(message):
         current_users[message.from_user.id]['main']['responses'].to_csv(user_eat26_test_file_name)
         user_bdi_test_file_name = 'user_test_responses/' + str(message.from_user.id) + '_' + 'bdi' + '_' + now_h
         current_users[message.from_user.id]['main']['responses'].to_csv(user_bdi_test_file_name)
+    current_users[message.from_user.id]['message_to_delete'] = 0
     tb.send_message(message.chat.id, "Пройдите, пожалуйста, все три теста: ", reply_markup=makeKeyboard('tests'),
                             parse_mode='HTML')
 
+
 def question_generator(usr, test):
 
-    message_to_delete = current_users[usr]['message_to_delete']
+    if 'message_to_delete' in current_users[usr].keys():
+        message_to_delete = current_users[usr]['message_to_delete']
+    else:
+        current_users[usr]['message_to_delete'] = 0
+        message_to_delete = current_users[usr]['message_to_delete']
 
     question_options = {}
     user_test_dict = current_users[usr]
