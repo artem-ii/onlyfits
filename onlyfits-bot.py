@@ -185,8 +185,11 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                        'totest_bdi': 'Настроение'
                        },
 
-             'resources': {
-                            'get_intro': 'Вступление',
+             'resources': {'to_coachres': 'Материалы для кураторов',
+                           'to_clientres': 'Материалы для клиентов'
+                           },
+
+             'coachres': {'get_intro': 'Вступление',
                             'get_reporting': 'Руководство по Отчётности',
                             'get_balanceddiet': 'Сбалансированный Рацион',
                             'get_portions': 'Система Порций',
@@ -196,6 +199,9 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                             'get_ro3': 'План Питания "Правило Трёх" ',
                             'get_generaltech': 'Общие техники и принципы проведения консультаций',
                             'get_firstconsult': 'Первая консультация',
+                            'to_main': 'Главное меню'
+                            },
+             'clientres': {'get_client1': 'Д/з Первая консультация',
                             'to_main': 'Главное меню'
                            }
              }
@@ -310,7 +316,7 @@ def question_generator(usr, test):
                 question_options[question_option_key] = question_option_value
         question_options['questionanswered_' + str(requested_test) + '_' +
                          'qback' + '_' +
-                         str(user_test_dict[requested_test]['current_question_index'])] = 'К предыдушему вопросу'
+                         str(user_test_dict[requested_test]['current_question_index'])] = 'К предыдущему вопросу'
         #question_options['testmenu'] = 'К меню с тестами'
         print(question_options)
         message_sent = tb.send_message(usr, text = current_question,
@@ -599,20 +605,21 @@ def send_file(usr, file):
     if '.DS_Store' in get_doc:
         get_doc.remove('.DS_Store')
         print('ds store removed')
-    get_doc = str(path + get_doc[0])
-    print(get_doc)
-    doc = open(get_doc, 'rb')
-    tb.send_document(usr, doc)
-    doc.close()
-    trenerskaya[usr]['log'] = str(get_time() + ' ' +
-                                  trenerskaya[usr]['name'] + ' requested file ' + get_doc)
 
-    tb.send_message(3755631, trenerskaya[usr]['log'])
-    line = str(trenerskaya[usr]['log'] + '\n')
-    print(line)
-    with open('log.txt', 'a', encoding='utf-8') as f:
-        f.write(line)
-        f.close()
+    for file in get_doc:
+        get_doc = str(path + file)
+        print(file)
+        doc = open(get_doc, 'rb')
+        tb.send_document(usr, doc)
+        doc.close()
+        trenerskaya[usr]['log'] = str(get_time() + ' ' +
+                                      trenerskaya[usr]['name'] + ' requested file ' + file)
+        tb.send_message(3755631, trenerskaya[usr]['log'])
+        line = str(trenerskaya[usr]['log'] + '\n')
+        print(line)
+        with open('log.txt', 'a', encoding='utf-8') as f:
+            f.write(line)
+            f.close()
 
 
 # Get user profiles
