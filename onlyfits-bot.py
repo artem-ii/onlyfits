@@ -189,18 +189,27 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                            'to_clientres': 'Материалы для клиентов'
                            },
 
-             'coachres': {'get_intro': 'Вступление',
+             'coachres': {'to_generalres': 'Общие материалы',
+                            'to_nutrires': 'Материалы по питанию и активности',
+                            'to_main': 'Главное меню'
+                            },
+             'generalres': {'get_intro': 'Вступление',
                             'get_reporting': 'Руководство по Отчётности',
-                            'get_balanceddiet': 'Сбалансированный Рацион',
+                            'get_generaltech': 'Общие техники и принципы проведения консультаций',
+                            'get_firstconsult': 'Первая консультация',
+                            'get_secondconsult': 'Вторая консультация',
+                            'to_coachres': 'Назад',
+                            'to_main': 'Главное меню'
+                            },
+             'nutrires': {'get_balanceddiet': 'Сбалансированный Рацион',
                             'get_portions': 'Система Порций',
                             'get_hplowgi': 'HP low-GI Рацион',
                             'get_energybalance':'Энергетический Баланс',
                             'get_physact': 'Физическая Активность',
                             'get_ro3': 'План Питания "Правило Трёх" ',
-                            'get_generaltech': 'Общие техники и принципы проведения консультаций',
-                            'get_firstconsult': 'Первая консультация',
+                            'to_coachres': 'Назад',
                             'to_main': 'Главное меню'
-                            },
+                          },
              'clientres': {'get_client1': 'Д/з Первая консультация',
                             'to_main': 'Главное меню'
                            }
