@@ -95,7 +95,7 @@ def handle_start(message):
 
 def database_dump(usr, call):
     current_users = {'init':'init'}
-    with open(current_clients_db, 'wb') as f:
+    with open('current_clients.pkl', 'wb') as f:
         pickle.dump(current_users, f)
     dump_reply = 'dump complete'
     tb.send_message(usr, text=str(current_users) + dump_reply)
@@ -189,16 +189,32 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                        'totest_bdi': 'Настроение'
                        },
 
-             'resources': {
-                            'get_intro': 'Вступление',
+             'resources': {'to_coachres': 'Материалы для кураторов',
+                           'to_clientres': 'Материалы для клиентов'
+                           },
+
+             'coachres': {'to_generalres': 'Общие материалы',
+                            'to_nutrires': 'Материалы по питанию и активности',
+                            'to_main': 'Главное меню'
+                            },
+             'generalres': {'get_intro': 'Вступление',
                             'get_reporting': 'Руководство по Отчётности',
-                            'get_balanceddiet': 'Сбалансированный Рацион',
+                            'get_generaltech': 'Общие техники и принципы проведения консультаций',
+                            'get_firstconsult': 'Первая консультация',
+                            'get_secondconsult': 'Вторая консультация',
+                            'to_coachres': 'Назад',
+                            'to_main': 'Главное меню'
+                            },
+             'nutrires': {'get_balanceddiet': 'Сбалансированный Рацион',
                             'get_portions': 'Система Порций',
                             'get_hplowgi': 'HP low-GI Рацион',
                             'get_energybalance':'Энергетический Баланс',
                             'get_physact': 'Физическая Активность',
                             'get_ro3': 'План Питания "Правило Трёх" ',
-                            'get_generaltech': 'Общие техники и принципы проведения консультаций',
+                            'to_coachres': 'Назад',
+                            'to_main': 'Главное меню'
+                          },
+             'clientres': {'get_client1': 'Д/з Первая консультация',
                             'to_main': 'Главное меню'
                            }
              }
@@ -230,6 +246,7 @@ def test_mainscreen(message):
         current_users[message.from_user.id]['main']['responses']['client_telegram_first_name'] = [str(message.from_user.first_name)]
         current_users[message.from_user.id]['main']['responses']['client_telegram_last_name'] = [str(message.from_user.last_name)]
         current_users[message.from_user.id]['main']['responses']['client_telegram_username'] = [str(message.from_user.username)]
+        current_users[message.from_user.id]['message_to_delete'] = 0
         print(current_users)
         print(message.from_user.id)
         now = datetime.now()
@@ -240,12 +257,20 @@ def test_mainscreen(message):
         current_users[message.from_user.id]['main']['responses'].to_csv(user_eat26_test_file_name)
         user_bdi_test_file_name = 'user_test_responses/' + str(message.from_user.id) + '_' + 'bdi' + '_' + now_h
         current_users[message.from_user.id]['main']['responses'].to_csv(user_bdi_test_file_name)
-    tb.send_message(message.chat.id, "Пройдите, пожалуйста, все три теста: ", reply_markup=makeKeyboard('tests'),
-                            parse_mode='HTML')
+    current_users[message.from_user.id]['message_to_delete'] = 0
+    sent_message = tb.send_message(message.chat.id, "Пройдите, пожалуйста, все три теста: ",
+                                   reply_markup=makeKeyboard('tests'),
+                                   parse_mode='HTML')
+    current_users[message.from_user.id]['message_to_delete'] = sent_message.message_id
+
 
 def question_generator(usr, test):
 
-    message_to_delete = current_users[usr]['message_to_delete']
+    if 'message_to_delete' in current_users[usr].keys():
+        message_to_delete = current_users[usr]['message_to_delete']
+    else:
+        current_users[usr]['message_to_delete'] = 0
+        message_to_delete = current_users[usr]['message_to_delete']
 
     question_options = {}
     user_test_dict = current_users[usr]
@@ -304,7 +329,7 @@ def question_generator(usr, test):
                 question_options[question_option_key] = question_option_value
         question_options['questionanswered_' + str(requested_test) + '_' +
                          'qback' + '_' +
-                         str(user_test_dict[requested_test]['current_question_index'])] = 'К предыдушему вопросу'
+                         str(user_test_dict[requested_test]['current_question_index'])] = 'К предыдущему вопросу'
         #question_options['testmenu'] = 'К меню с тестами'
         print(question_options)
         message_sent = tb.send_message(usr, text = current_question,
@@ -504,7 +529,12 @@ def call_from_user(call):
         tb.answer_callback_query(call.id, '\U0000231B')
     elif call.data.startswith('questionanswered_'):
         save_answer(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
+        if call.data.split('_')[3].isalpha():
+            pop_text = 'Вы выбрали вариант ' + call.data.split('_')[3]
+        else:
+            toquestionnum = int(call.data.split('_')[3]) - 1
+            pop_text = 'Назад к вопросу ' + str(toquestionnum)
+        tb.answer_callback_query(call.id, pop_text)
     elif call.data.startswith('gettestresults'):
         gettestresults(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
@@ -588,20 +618,21 @@ def send_file(usr, file):
     if '.DS_Store' in get_doc:
         get_doc.remove('.DS_Store')
         print('ds store removed')
-    get_doc = str(path + get_doc[0])
-    print(get_doc)
-    doc = open(get_doc, 'rb')
-    tb.send_document(usr, doc)
-    doc.close()
-    trenerskaya[usr]['log'] = str(get_time() + ' ' +
-                                  trenerskaya[usr]['name'] + ' requested file ' + get_doc)
 
-    tb.send_message(3755631, trenerskaya[usr]['log'])
-    line = str(trenerskaya[usr]['log'] + '\n')
-    print(line)
-    with open('log.txt', 'a', encoding='utf-8') as f:
-        f.write(line)
-        f.close()
+    for file in get_doc:
+        get_doc = str(path + file)
+        print(file)
+        doc = open(get_doc, 'rb')
+        tb.send_document(usr, doc)
+        doc.close()
+        trenerskaya[usr]['log'] = str(get_time() + ' ' +
+                                      trenerskaya[usr]['name'] + ' requested file ' + file)
+        tb.send_message(3755631, trenerskaya[usr]['log'])
+        line = str(trenerskaya[usr]['log'] + '\n')
+        print(line)
+        with open('log.txt', 'a', encoding='utf-8') as f:
+            f.write(line)
+            f.close()
 
 
 # Get user profiles
@@ -632,3 +663,4 @@ tb.load_next_step_handlers()
 # Get Updates
 tb.set_update_listener(handle_messages)
 tb.infinity_polling()
+
