@@ -11,7 +11,7 @@ import pickle
 from test_parser_for_bot import *
 from clients import *
 
-print(clients_dict)
+
 current_clients_db = 'current_clients_dev.pkl'
 
 current_users = {'init':'init'}
@@ -61,10 +61,6 @@ bdi_keys = pd.read_csv(
     '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/Предзапись/bdi-keys.csv',
     sep = ';', dtype = str)
 
-tests_dict = {'eat26':{'convert': eat26_convert, 'keys': eat26_keys},
-              'main':{'convert': main_convert, 'keys': main_keys},
-              'bdi':{'convert': bdi_convert, 'keys': bdi_keys}}
-
 # User id info
 coaches_real = {520834290:"Ксения Календарева", 594759110:"Елена", 1472202629:"trener.idel",
            541765907:"Дарья", 141659022:"Янина", 287460510:"Ирина",
@@ -81,8 +77,29 @@ ids = [3755631]
 
 # User State dictionary
 trenerskaya = {x: dict(name=coaches[x], menu_cur='main',
-                       menu_prev=str(), step=str(), message_to_delete=0, log=str()) for x in (coaches.keys())}
+                       menu_prev=str(), clients=clients_dict[coaches[x]], consult_mode=False,
+                       message_to_delete=0, log=str()) for x in (coaches.keys())}
 print(trenerskaya)
+
+
+tests_dict = {'eat26':{'convert': eat26_convert, 'keys': eat26_keys},
+              'main':{'convert': main_convert, 'keys': main_keys},
+              'bdi':{'convert': bdi_convert, 'keys': bdi_keys}}
+consult_type_dict = {
+        'initconsult_first': 'Первая консультация',
+        'initconsult_second': 'Вторая консультация',
+        'initconsult_last': 'Заключительная консультация',
+        'initconsult_nutri': 'Питание и активность',
+        'initconsult_psy': 'Навыки',
+        'consult': 'Назад',
+        'to_main': 'Главное меню'
+        }
+
+
+
+#@tb.message_handler(func=lambda message: trenerskaya[message.from_user.id]['consult_mode'] == True)
+
+
 
 
 @tb.message_handler(commands=['start', 'help'])
@@ -123,7 +140,9 @@ def database_dump(usr, call):
 def handle_messages(messages):
     for message in messages:
         #Sign Up
-        if message.text == 'database_dump_2929':
+        if trenerskaya[message.from_user.id]['consult_mode']:
+            handle_report_notes(message)
+        elif message.text == 'database_dump_2929':
             dump_reply = db_dump()
             tb.send_message(message.chat.id, text=str(current_users + dump_reply))
         elif message.text == 'betatester':
@@ -181,7 +200,8 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                        'to_main': 'Главное меню'},
 
              'main': {'to_resources':' Материалы Программы',
-                      'to_clients': 'Мои клиенты'
+                      'to_clients': 'Мои клиенты',
+                      'consult': 'Начать консультацию'
                       },
 
              'clients': {},
@@ -522,73 +542,6 @@ def move(usr, menu):
 
 
 
-#CallBack Handler
-
-@tb.callback_query_handler(func=lambda call: call.from_user.id not in coaches.keys())
-def call_from_user(call):
-    if call.data.startswith('totest_'):
-        question_generator(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-    elif call.data.startswith('questionanswered_'):
-        save_answer(call.from_user.id, call.data)
-        if call.data.split('_')[3].isalpha():
-            pop_text = 'Вы выбрали вариант ' + call.data.split('_')[3]
-        else:
-            toquestionnum = int(call.data.split('_')[3]) - 1
-            pop_text = 'Назад к вопросу ' + str(toquestionnum)
-        tb.answer_callback_query(call.id, pop_text)
-    elif call.data.startswith('gettestresults'):
-        gettestresults(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-
-# Обрабатывает нажатия кнопок кураторами
-@tb.callback_query_handler(func=lambda call: call.from_user.id in coaches.keys())
-def call_from_coach(call):
-    if call.data.startswith('to_'):
-        move(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0001F4D6')
-    elif call.data.startswith('get_'):
-        send_file(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-    elif call.data.startswith('getprofile_'):
-        get_profile(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-    elif call.data.startswith('totest_'):
-        question_generator(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-    elif call.data.startswith('questionanswered_'):
-        save_answer(call.from_user.id, call.data)
-        if call.data.split('_')[3].isalpha():
-            pop_text = 'Вы выбрали вариант ' + call.data.split('_')[3]
-        else:
-            toquestionnum = int(call.data.split('_')[3]) - 1
-            pop_text = 'Назад к вопросу ' + str(toquestionnum)
-        tb.answer_callback_query(call.id, pop_text)
-    elif call.data.startswith('gettestresults'):
-        gettestresults(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-    elif call.data.startswith('databasedump'):
-        database_dump(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-    elif call.data.startswith('erase_'):
-        erase_results(call.from_user, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-    elif call.data.startswith('eraseresults'):
-        erase_results_menu(call.from_user.id, call.data)
-        tb.answer_callback_query(call.id, '\U0000231B')
-    elif call.data == 'send_resources':
-        print('send resources command')
-        for i in coaches.keys():
-            print('sending to ' + coaches[i])
-            tb.send_message(chat_id=i,
-                            text = 'Меню', reply_markup=makeKeyboard('main'),
-                            parse_mode='HTML')
-    elif call.data == 'send_message':
-        print('send message command')
-        tb.answer_callback_query(call.id, '\U00002709')
-        greet = tb.send_message(chat_id=call.from_user.id,
-                            text = 'Сообщение:')
-        tb.register_next_step_handler(greet, send_text_msg)
 
 def send_text_msg(msg):
     for i in coaches.keys():
@@ -640,13 +593,24 @@ def send_file(usr, file):
 # Get user profiles
 
 def get_profile(usr, profile):
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
     path = str(clients_folder + profile.split('_')[1])
     with open(path, 'r') as file:
         profile_text = file.read().replace('\n', '\n\n')
-    back_button = {'to_clients' : 'К списку клиентов'}
-    message_sent = tb.send_message(usr, profile_text,
-                    reply_markup=makeQuestionKeyboard(back_button)
-                    )
+    back_button = {'to_clients': 'К списку клиентов'}
+    if trenerskaya[usr]['consult_mode']:
+        consult_type = trenerskaya[usr]['consult_type']
+        options_consult = {'taskforclient': 'Отправить материалы клиенту',
+                   'initconsult_' + consult_type: 'Скрыть профиль клиента',
+                   'report': 'Завершить и заполнить отчёт'}
+        message_sent = tb.send_message(usr, profile_text,
+                                       reply_markup=makeQuestionKeyboard(options_consult))
+    else:
+        message_sent = tb.send_message(usr, profile_text,
+                                       reply_markup=makeQuestionKeyboard(back_button))
+
     trenerskaya[usr]['log'] = str(get_time() + ' ' +
                                   trenerskaya[usr]['name'] +
                                   ' requested profile ' + profile.split('_')[1])
@@ -657,6 +621,165 @@ def get_profile(usr, profile):
     with open('log.txt', 'a', encoding='utf-8') as f:
         f.write(line)
         f.close()
+
+
+# Функции, которые будут обрабатывать отчёты о консультациях
+def getconsultclient(usr):
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
+
+    coach_name = coaches[usr]
+    coach_clients = trenerskaya[usr]['clients']
+    coach_clients_dict = {}
+    for client in coach_clients:
+        coach_clients_dict['consultwithclient_' + client] = client
+    sent_message = tb.send_message(usr, 'Выберите, пожалуйста, клиента',
+                                   reply_markup=makeQuestionKeyboard(coach_clients_dict),
+                                   parse_mode='HTML')
+    trenerskaya[usr]['message_to_delete'] = sent_message.message_id
+
+
+def getconsulttype(usr, client_call):
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
+    current_client = client_call.split('_')[1]
+    trenerskaya[usr]['current_client'] = current_client
+    sent_message = tb.send_message(usr, 'Выберите, пожалуйста, тип консультации',
+                                   reply_markup=makeQuestionKeyboard(consult_type_dict),
+                                   parse_mode='HTML')
+    trenerskaya[usr]['message_to_delete'] = sent_message.message_id
+
+
+def consult_init(usr, init_call):
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
+    consult_type = init_call.split('_')[1]
+    trenerskaya[usr]['consult_type'] = consult_type
+    current_client = trenerskaya[usr]['current_client']
+    date = datetime.now()
+    date = date.strftime("%d_%m_%Y")
+    report_filename = date + '_' + consult_type + '_'\
+                      + current_client + '.rp'
+    path = os.path.join('consult_reports', current_client)
+    report_path = os.path.join('consult_reports',
+                               current_client,
+                               report_filename)
+    if not trenerskaya[usr]['consult_mode']:
+        os.makedirs(path, exist_ok=True)
+        first_line = 'Консультация начата ' + get_time() + '\n' +\
+                     'Куратор: ' + trenerskaya[usr]['name'] + '\n' +\
+                     'Клиент: ' + trenerskaya[usr]['current_client'] + '\n\n'
+        with open(report_path,  'a', encoding='utf-8') as report:
+            report.write(first_line)
+            report.close()
+        trenerskaya[usr]['consult_mode'] = True
+
+    options_consult = {'taskforclient': 'Отправить материалы клиенту',
+                   'getprofile_' + current_client + '.rs': 'Вывести профиль клиента',
+                   'report': 'Завершить и заполнить отчёт'}
+    sent_message = tb.send_message(usr, "Консультация начата. Вы можете отправлять заметки, либо выбрать опцию:",
+                                   reply_markup=makeQuestionKeyboard(options_consult),
+                                   parse_mode="HTML")
+    trenerskaya[usr]['message_to_delete'] = sent_message.message_id
+
+def handle_report_notes(message):
+    usr = message.from_user.id
+    consult_type = trenerskaya[usr]['consult_type']
+    current_client = trenerskaya[usr]['current_client']
+    now = datetime.now()
+    date = now.strftime("%d_%m_%Y")
+    time = now.strftime("%H:%M:%S")
+    report_filename = date + '_' + consult_type + '_'\
+                      + current_client + '.rp'
+    report_path = os.path.join('consult_reports',
+                               current_client,
+                               report_filename)
+    note = time + ' ' + message.text
+    with open(report_path,  'a', encoding='utf-8') as report:
+        report.write('\n' + note + '\n')
+        report.close()
+
+#CallBack Handler
+
+@tb.callback_query_handler(func=lambda call: call.from_user.id not in coaches.keys())
+def call_from_user(call):
+    if call.data.startswith('totest_'):
+        question_generator(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('questionanswered_'):
+        save_answer(call.from_user.id, call.data)
+        if call.data.split('_')[3].isalpha():
+            pop_text = 'Вы выбрали вариант ' + call.data.split('_')[3]
+        else:
+            toquestionnum = int(call.data.split('_')[3]) - 1
+            pop_text = 'Назад к вопросу ' + str(toquestionnum)
+        tb.answer_callback_query(call.id, pop_text)
+    elif call.data.startswith('gettestresults'):
+        gettestresults(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+
+# Обрабатывает нажатия кнопок кураторами
+@tb.callback_query_handler(func=lambda call: call.from_user.id in coaches.keys())
+def call_from_coach(call):
+    if call.data.startswith('to_'):
+        move(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0001F4D6')
+    elif call.data.startswith('get_'):
+        send_file(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('getprofile_'):
+        get_profile(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('totest_'):
+        question_generator(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('questionanswered_'):
+        save_answer(call.from_user.id, call.data)
+        if call.data.split('_')[3].isalpha():
+            pop_text = 'Вы выбрали вариант ' + call.data.split('_')[3]
+        else:
+            toquestionnum = int(call.data.split('_')[3]) - 1
+            pop_text = 'Назад к вопросу ' + str(toquestionnum)
+        tb.answer_callback_query(call.id, pop_text)
+    elif call.data.startswith('gettestresults'):
+        gettestresults(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data == 'consult':
+        getconsultclient(call.from_user.id)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('consultwithclient'):
+        getconsulttype(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('initconsult'):
+        consult_init(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, 'Консультация начата')
+    elif call.data.startswith('databasedump'):
+        database_dump(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('erase_'):
+        erase_results(call.from_user, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('eraseresults'):
+        erase_results_menu(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data == 'send_resources':
+        print('send resources command')
+        for i in coaches.keys():
+            print('sending to ' + coaches[i])
+            tb.send_message(chat_id=i,
+                            text = 'Меню', reply_markup=makeKeyboard('main'),
+                            parse_mode='HTML')
+    elif call.data == 'send_message':
+        print('send message command')
+        tb.answer_callback_query(call.id, '\U00002709')
+        greet = tb.send_message(chat_id=call.from_user.id,
+                            text = 'Сообщение:')
+        tb.register_next_step_handler(greet, send_text_msg)
+
+
 #Next Step Handler
 tb.enable_save_next_step_handlers(delay=2)
 tb.load_next_step_handlers()
