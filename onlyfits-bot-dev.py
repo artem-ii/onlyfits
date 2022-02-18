@@ -9,7 +9,9 @@ import textwrap
 import pickle
 
 from test_parser_for_bot import *
+from clients import *
 
+print(clients_dict)
 current_clients_db = 'current_clients_dev.pkl'
 
 current_users = {'init':'init'}
