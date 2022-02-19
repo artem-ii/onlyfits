@@ -62,19 +62,19 @@ bdi_keys = pd.read_csv(
     sep = ';', dtype = str)
 
 nutri_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
     sep = ';', dtype = str)
 psy_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
     sep = ';', dtype = str)
 first_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
     sep = ';', dtype = str)
 second_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
     sep = ';', dtype = str)
 last_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
     sep = ';', dtype = str)
 
 
@@ -95,7 +95,8 @@ ids = [3755631]
 # User State dictionary
 trenerskaya = {x: dict(name=coaches[x], menu_cur='main',
                        menu_prev=str(), clients=clients_dict[coaches[x]], consult_mode=False,
-                       message_to_delete=0, log=str()) for x in (coaches.keys())}
+                       message_to_delete=0, consult_test_index=0,
+                       log=str()) for x in (coaches.keys())}
 print(trenerskaya)
 
 
@@ -729,27 +730,31 @@ def handle_report_notes(message):
 
 
 def consult_test_generator(usr, call):
-
-    if 'message_to_delete' in current_users[usr].keys():
-        message_to_delete = current_users[usr]['message_to_delete']
-    else:
-        current_users[usr]['message_to_delete'] = 0
-        message_to_delete = current_users[usr]['message_to_delete']
-
-    question_options = {}
-    user_test_dict = current_users[usr]
-    print(user_test_dict)
-    requested_test = test.split('_')[1]
-    test_data_dict = tests_dict[requested_test]
-    test_convert = test_data_dict['convert']
-    test_keys = test_data_dict['keys']
-    current_question_row = test_convert.iloc[user_test_dict[requested_test]['current_question_index'],:]
-    current_users[usr]['current_test'] = requested_test
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    consult_type = trenerskaya[usr]['consult_type']
+    current_client = trenerskaya[usr]['current_client']
+    date = datetime.now()
+    date = date.strftime("%d_%m_%Y")
+    report_filename = date + '_' + consult_type + '_'\
+                      + current_client + '.rp'
+    report_path = os.path.join('consult_reports',
+                               current_client,
+                               report_filename)
+    last_line = 'Консультация закончена ' + get_time() + '\n' +\
+                'Куратор:' + trenerskaya[usr]['name'] + '\n' +\
+                'Клиент: ' + trenerskaya[usr]['current_client'] + '\n\n'
+    with open(report_path,  'a', encoding='utf-8') as report:
+        report.write('\n\n' + last_line)
+        report.close()
+    trenerskaya[usr]['consult_mode'] = False
+    trenerskaya[usr]['consult_test'] = {}
+    test_convert = report_tests_dict[consult_type]['convert']
+    current_question_row = test_convert.iloc[trenerskaya[usr]['consult_test_index'],:]
     current_question_code = current_question_row['Number']
     current_question = current_question_row['Question']
-    current_question_type = current_question_row['subscale']
+    current_question_type = current_question_row['type']
     line = str(get_time() + ' ' + str(usr) + ' '
-               + ' in test ' + requested_test + ' on question '
+               + ' in test ' + consult_type + ' on question '
                + current_question_code + '\n')
     print(line)
     with open('log.txt', 'a', encoding='utf-8') as f:
@@ -760,46 +765,130 @@ def consult_test_generator(usr, call):
     if current_question_type == 'text':
         if message_to_delete not in [-1, 0]:
             tb.delete_message(usr, message_to_delete)
-        current_users[usr]['current_test'] = requested_test
-        current_users[usr]['current_question_code'] = current_question_code
-        gettextanswer = tb.send_message(usr, text = current_question)
+        gettextanswer = tb.send_message(usr, text=current_question)
         current_users[usr]['message_to_delete'] = gettextanswer.message_id
         tb.register_next_step_handler(gettextanswer, save_text_answer)
-
-    elif current_question_type == 'multiple':
-        tb.send_message(usr, text = current_question)
-        user_test_dict[requested_test]['current_question_index'] += 1
-        current_users[usr] = user_test_dict
-        question_generator(usr, test)
-
-    elif current_question_type == 'date':
-        if message_to_delete not in [-1, 0]:
-            tb.delete_message(usr, message_to_delete)
-        current_users[usr]['current_test'] = requested_test
-        current_users[usr]['current_question_code'] = current_question_code
-        gettextanswer = tb.send_message(usr, text = current_question)
-        current_users[usr]['message_to_delete'] = gettextanswer.message_id
-        tb.register_next_step_handler(gettextanswer, check_answer)
-
     else:
         if message_to_delete not in [-1, 0]:
             tb.delete_message(usr, message_to_delete)
-        option_string = 'abcdefg'
-        for option in option_string:
+        options = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']
+        question_options = {}
+        for option in options:
             if not pd.isnull(current_question_row[option]):
-                question_option_key = 'questionanswered' + '_' + str(requested_test)+ '_' + \
+                question_option_key = 'reportquestionanswered' + '_' + str(consult_type)+ '_' + \
                                       str(current_question_code) + '_' + str(option)
                 question_option_value = current_question_row[option]
                 question_options[question_option_key] = question_option_value
-        question_options['questionanswered_' + str(requested_test) + '_' +
-                         'qback' + '_' +
-                         str(user_test_dict[requested_test]['current_question_index'])] = 'К предыдущему вопросу'
+#        question_options['reportquestionanswered_' + str(consult_type) + '_' +
+#                         'qback' + '_' +
+#                         str(trenerskaya[requested_test]['current_question_index'])] = 'К предыдущему вопросу'
         #question_options['testmenu'] = 'К меню с тестами'
         print(question_options)
-        message_sent = tb.send_message(usr, text = current_question,
+        message_sent = tb.send_message(usr, text=current_question,
                                        reply_markup=makeQuestionKeyboard(question_options),
                                        parse_mode='HTML')
-        current_users[usr]['message_to_delete'] = message_sent.message_id
+        trenerskaya[usr]['message_to_delete'] = message_sent.message_id
+
+
+# def consult_save_text_answer(message):
+#     usr = message.from_user.id
+#     if current_users[usr]['message_to_delete'] != 0:
+#         message_to_delete = current_users[usr]['message_to_delete']
+#         tb.delete_message(usr, message_to_delete)
+#         tb.delete_message(usr, message_to_delete + 1)
+#         current_users[usr]['message_to_delete'] = -1
+#
+#
+#     print('save_text_answer function active')
+#     current_test = current_users[message.from_user.id]['current_test']
+#     current_question_code = current_users[message.from_user.id]['current_question_code']
+#     answer_text = message.text
+#     answer = 'questionanswered' + '_' + str(current_test) + '_' + \
+#              str(current_question_code) + '_' + str(answer_text)
+#     print(answer)
+#     save_answer(message.from_user.id, answer)
+#
+# def consult_save_answer(usr, answerdata):
+#     print('consult_save_answer function active')
+#     user_test_dict = current_users[usr]
+#     tests_left_dict = {}
+#     answer_data = answer.split('_')
+#     if answer_data[2] == 'qback':
+#         current_test = answer_data[1]
+#         user_test_dict[current_test]['current_question_index'] -= 1
+#         test = 'totest_' + current_test
+#         question_generator(usr, test)
+#     else:
+#         answered_test_name = answer_data[1]
+#         answered_question_code = answer_data[2]
+#         option_selected = answer_data[3]
+#
+#         test_data_dict = tests_dict[answered_test_name]
+#         test_convert = test_data_dict['convert']
+#         current_question_row = test_convert.iloc[user_test_dict[answered_test_name]['current_question_index'],:]
+#         current_question_code = current_question_row['Number']
+#
+#         line = str(get_time() + ' ' + str(usr) + ' '
+#                    + ' answered test ' + answered_test_name + ' question '
+#                    + answered_question_code + '\n')
+#         print(line)
+#         with open('log.txt', 'a', encoding='utf-8') as f:
+#             f.write(line)
+#             f.close()
+#         tb.send_message(3755631, line)
+#
+#         if answered_question_code == current_question_code:
+#             answers_df = user_test_dict[answered_test_name]['responses']
+#             answers_df[answered_question_code] = option_selected
+#             user_test_dict[answered_test_name]['current_question_index'] += 1
+#             if user_test_dict[answered_test_name]['current_question_index'] == len(test_convert):
+#                 user_test_dict[answered_test_name]['current_question_index'] = 0
+#                 print(user_test_dict['tests_to_do'])
+#                 print(answered_test_name)
+#                 user_test_dict['tests_to_do'].remove(answered_test_name)
+#                 tests_left = user_test_dict['tests_to_do']
+#                 for test in tests_left:
+#                     test_key = str('totest_' + test)
+#                     tests_left_dict[test_key] = keyboards['tests'][test_key]
+#                 current_users[usr] = user_test_dict
+#                 with open(current_clients_db, 'wb') as f:
+#                     pickle.dump(current_users, f)
+#                 if tests_left == []:
+#                     get_results = {'gettestresults': 'Ваша Индивидуальная Программа ONLYFITS.you'}
+#                     tb.send_message(usr, text = "Спасибо, вы прошли все тесты",
+#                                 reply_markup=makeQuestionKeyboard(get_results),
+#                                 parse_mode='HTML')
+#                     current_users[usr]['tests_to_do'] = tests
+#                     line = str(get_time() + ' ' + str(usr) + ' '
+#                         + ' completed all tests ' + '\n')
+#                     print(line)
+#                     with open('log.txt', 'a', encoding='utf-8') as f:
+#                         f.write(line)
+#                         f.close()
+#                     tb.send_message(3755631, line)
+#                 else:
+#                     tb.send_message(usr, text = "Спасибо, вы прошли тест " +
+#                                             keyboards['tests'][str('totest_' + answered_test_name)],
+#                                 reply_markup=makeQuestionKeyboard(tests_left_dict),
+#                                 parse_mode='HTML')
+#                     line = str(get_time() + ' ' + str(usr) + ' '
+#                         + ' completed test '
+#                         + answered_test_name + '\n')
+#                     print(line)
+#                     with open('log.txt', 'a', encoding='utf-8') as f:
+#                         f.write(line)
+#                         f.close()
+#                     tb.send_message(3755631, line)
+#                 now = datetime.now()
+#                 now_h = now.strftime("%d-%m-%Y")
+#                 user_test_result_file_name = 'user_test_responses/' + str(usr) + '_' + answered_test_name + '_' + now_h
+#                 user_test_dict[answered_test_name]['responses'].to_csv(user_test_result_file_name)
+#             else:
+#                 test = 'totest_' + answered_test_name
+#                 current_users[usr] = user_test_dict
+#                 with open(current_clients_db, 'wb') as f:
+#                     pickle.dump(current_users, f)
+#                 question_generator(usr, test)
 #CallBack Handler
 
 @tb.callback_query_handler(func=lambda call: call.from_user.id not in coaches.keys())
@@ -854,9 +943,12 @@ def call_from_coach(call):
     elif call.data.startswith('initconsult'):
         consult_init(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, 'Консультация начата')
-    elif call.data.startswith('report'):
-        consult_init(call.from_user.id, call.data)
+    elif call.data == 'report':
+        consult_test_generator(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, 'Консультация закончена')
+    elif call.data.startswith('reportquestionanswered'):
+        consult_save_answer(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, 'Ответ принят')
     elif call.data.startswith('databasedump'):
         database_dump(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
