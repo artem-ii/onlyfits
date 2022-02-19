@@ -61,6 +61,23 @@ bdi_keys = pd.read_csv(
     '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/Предзапись/bdi-keys.csv',
     sep = ';', dtype = str)
 
+nutri_convert = pd.read_csv(
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    sep = ';', dtype = str)
+psy_convert = pd.read_csv(
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    sep = ';', dtype = str)
+first_convert = pd.read_csv(
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    sep = ';', dtype = str)
+second_convert = pd.read_csv(
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    sep = ';', dtype = str)
+last_convert = pd.read_csv(
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nurti_convert.csv',
+    sep = ';', dtype = str)
+
+
 # User id info
 coaches_real = {520834290:"Ксения Календарева", 594759110:"Елена", 1472202629:"trener.idel",
            541765907:"Дарья", 141659022:"Янина", 287460510:"Ирина",
@@ -85,6 +102,13 @@ print(trenerskaya)
 tests_dict = {'eat26':{'convert': eat26_convert, 'keys': eat26_keys},
               'main':{'convert': main_convert, 'keys': main_keys},
               'bdi':{'convert': bdi_convert, 'keys': bdi_keys}}
+
+report_tests_dict = {'nutri':{'convert': nutri_convert, 'keys': eat26_keys},
+                     'first':{'convert': first_convert, 'keys': main_keys},
+                     'second':{'convert': second_convert, 'keys': main_keys},
+                     'psy':{'convert': psy_convert, 'keys': main_keys},
+                     'last':{'convert': last_convert, 'keys': bdi_keys}}
+
 consult_type_dict = {
         'initconsult_first': 'Первая консультация',
         'initconsult_second': 'Вторая консультация',
@@ -622,7 +646,7 @@ def get_profile(usr, profile):
         f.write(line)
         f.close()
 
-
+# __________________________________________________________
 # Функции, которые будут обрабатывать отчёты о консультациях
 def getconsultclient(usr):
     message_to_delete = trenerskaya[usr]['message_to_delete']
@@ -685,6 +709,7 @@ def consult_init(usr, init_call):
                                    parse_mode="HTML")
     trenerskaya[usr]['message_to_delete'] = sent_message.message_id
 
+
 def handle_report_notes(message):
     usr = message.from_user.id
     consult_type = trenerskaya[usr]['consult_type']
@@ -702,6 +727,79 @@ def handle_report_notes(message):
         report.write('\n' + note + '\n')
         report.close()
 
+
+def consult_test_generator(usr, call):
+
+    if 'message_to_delete' in current_users[usr].keys():
+        message_to_delete = current_users[usr]['message_to_delete']
+    else:
+        current_users[usr]['message_to_delete'] = 0
+        message_to_delete = current_users[usr]['message_to_delete']
+
+    question_options = {}
+    user_test_dict = current_users[usr]
+    print(user_test_dict)
+    requested_test = test.split('_')[1]
+    test_data_dict = tests_dict[requested_test]
+    test_convert = test_data_dict['convert']
+    test_keys = test_data_dict['keys']
+    current_question_row = test_convert.iloc[user_test_dict[requested_test]['current_question_index'],:]
+    current_users[usr]['current_test'] = requested_test
+    current_question_code = current_question_row['Number']
+    current_question = current_question_row['Question']
+    current_question_type = current_question_row['subscale']
+    line = str(get_time() + ' ' + str(usr) + ' '
+               + ' in test ' + requested_test + ' on question '
+               + current_question_code + '\n')
+    print(line)
+    with open('log.txt', 'a', encoding='utf-8') as f:
+        f.write(line)
+        f.close()
+    tb.send_message(3755631, line)
+
+    if current_question_type == 'text':
+        if message_to_delete not in [-1, 0]:
+            tb.delete_message(usr, message_to_delete)
+        current_users[usr]['current_test'] = requested_test
+        current_users[usr]['current_question_code'] = current_question_code
+        gettextanswer = tb.send_message(usr, text = current_question)
+        current_users[usr]['message_to_delete'] = gettextanswer.message_id
+        tb.register_next_step_handler(gettextanswer, save_text_answer)
+
+    elif current_question_type == 'multiple':
+        tb.send_message(usr, text = current_question)
+        user_test_dict[requested_test]['current_question_index'] += 1
+        current_users[usr] = user_test_dict
+        question_generator(usr, test)
+
+    elif current_question_type == 'date':
+        if message_to_delete not in [-1, 0]:
+            tb.delete_message(usr, message_to_delete)
+        current_users[usr]['current_test'] = requested_test
+        current_users[usr]['current_question_code'] = current_question_code
+        gettextanswer = tb.send_message(usr, text = current_question)
+        current_users[usr]['message_to_delete'] = gettextanswer.message_id
+        tb.register_next_step_handler(gettextanswer, check_answer)
+
+    else:
+        if message_to_delete not in [-1, 0]:
+            tb.delete_message(usr, message_to_delete)
+        option_string = 'abcdefg'
+        for option in option_string:
+            if not pd.isnull(current_question_row[option]):
+                question_option_key = 'questionanswered' + '_' + str(requested_test)+ '_' + \
+                                      str(current_question_code) + '_' + str(option)
+                question_option_value = current_question_row[option]
+                question_options[question_option_key] = question_option_value
+        question_options['questionanswered_' + str(requested_test) + '_' +
+                         'qback' + '_' +
+                         str(user_test_dict[requested_test]['current_question_index'])] = 'К предыдущему вопросу'
+        #question_options['testmenu'] = 'К меню с тестами'
+        print(question_options)
+        message_sent = tb.send_message(usr, text = current_question,
+                                       reply_markup=makeQuestionKeyboard(question_options),
+                                       parse_mode='HTML')
+        current_users[usr]['message_to_delete'] = message_sent.message_id
 #CallBack Handler
 
 @tb.callback_query_handler(func=lambda call: call.from_user.id not in coaches.keys())
@@ -756,6 +854,9 @@ def call_from_coach(call):
     elif call.data.startswith('initconsult'):
         consult_init(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, 'Консультация начата')
+    elif call.data.startswith('report'):
+        consult_init(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, 'Консультация закончена')
     elif call.data.startswith('databasedump'):
         database_dump(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
