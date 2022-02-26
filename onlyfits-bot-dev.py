@@ -66,16 +66,16 @@ nutri_convert = pd.read_csv(
     '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
     sep = ';', dtype = str)
 psy_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/psy_report.csv',
     sep = ';', dtype = str)
 first_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/first_report.csv',
     sep = ';', dtype = str)
 second_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/second_report.csv',
     sep = ';', dtype = str)
 last_convert = pd.read_csv(
-    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/nutri_report.csv',
+    '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/last_report.csv',
     sep = ';', dtype = str)
 
 
@@ -96,7 +96,7 @@ ids = [3755631]
 # User State dictionary
 trenerskaya = {x: dict(name=coaches[x], menu_cur='main',
                        menu_prev=str(), clients=clients_dict[coaches[x]], consult_mode=False,
-                       message_to_delete=0, consult_test_index=0,
+                       message_to_delete=0, consult_test_index=0, consult_test=pd.DataFrame(),
                        log=str()) for x in (coaches.keys())}
 print(trenerskaya)
 
@@ -169,7 +169,7 @@ def handle_messages(messages):
         if trenerskaya[message.from_user.id]['consult_mode']:
             handle_report_notes(message)
         elif message.text == 'database_dump_2929':
-            dump_reply = db_dump()
+            dump_reply = database_dump()
             tb.send_message(message.chat.id, text=str(current_users + dump_reply))
         elif message.text == 'betatester':
             test_mainscreen(message)
@@ -867,12 +867,11 @@ def consult_test_generator(usr, call):
                                'consult_reports',
                                current_client,
                                report_filename)
-    if trenerskaya[usr]['consult_mode']:
+    if trenerskaya[usr]['consult_test_index'] == 0:
         last_line = 'Консультация закончена ' + get_time()
         with open(report_path,  'a', encoding='utf-8') as report:
             report.write('\n\n' + last_line)
             report.close()
-        trenerskaya[usr]['consult_test'] = pd.DataFrame()
     test_convert = report_tests_dict[consult_type]['convert']
     current_question_row = test_convert.iloc[trenerskaya[usr]['consult_test_index'],:]
     current_question_code = current_question_row['Number']
@@ -983,6 +982,7 @@ def save_report_answer(usr, answer):
             if trenerskaya[usr]['consult_test_index'] == len(test_convert):
                 trenerskaya[usr]['consult_test_index'] = 0
                 trenerskaya[usr]['consult_test'] = coach_test_dict
+                trenerskaya[usr]['consult_test'] = pd.DataFrame()
                 with open(coaches_db, 'wb') as f:
                     pickle.dump(trenerskaya, f)
                 tb.send_message(usr, text = "Спасибо, отчёт сохранён.")
