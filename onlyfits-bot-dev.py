@@ -872,9 +872,7 @@ def consult_test_generator(usr, call):
         with open(report_path,  'a', encoding='utf-8') as report:
             report.write('\n\n' + last_line)
             report.close()
-        trenerskaya[usr]['consult_mode'] = False
         trenerskaya[usr]['consult_test'] = pd.DataFrame()
-        trenerskaya[usr]['consult_test_index'] = 0
     test_convert = report_tests_dict[consult_type]['convert']
     current_question_row = test_convert.iloc[trenerskaya[usr]['consult_test_index'],:]
     current_question_code = current_question_row['Number']
@@ -988,6 +986,7 @@ def save_report_answer(usr, answer):
                 with open(coaches_db, 'wb') as f:
                     pickle.dump(trenerskaya, f)
                 tb.send_message(usr, text = "Спасибо, отчёт сохранён.")
+                trenerskaya[usr]['consult_mode'] = False
                 line = str(get_time() + ' ' + trenerskaya[usr]['name']
                            + ' submitted report '
                            + answered_consult_type + '\n')
@@ -1050,7 +1049,7 @@ def call_from_user(call):
     elif call.data.startswith('gettestresults'):
         gettestresults(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
-z
+
 # Обрабатывает нажатия кнопок кураторами
 @tb.callback_query_handler(func=lambda call: call.from_user.id in coaches.keys())
 def call_from_coach(call):
