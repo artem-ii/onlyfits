@@ -105,11 +105,11 @@ tests_dict = {'eat26':{'convert': eat26_convert, 'keys': eat26_keys},
               'main':{'convert': main_convert, 'keys': main_keys},
               'bdi':{'convert': bdi_convert, 'keys': bdi_keys}}
 
-report_tests_dict = {'nutri':{'convert': nutri_convert, 'keys': eat26_keys},
-                     'first':{'convert': first_convert, 'keys': main_keys},
-                     'second':{'convert': second_convert, 'keys': main_keys},
-                     'psy':{'convert': psy_convert, 'keys': main_keys},
-                     'last':{'convert': last_convert, 'keys': bdi_keys}}
+report_tests_dict = {'nutri':{'name': 'Питание и активность', 'convert': nutri_convert, 'keys': eat26_keys},
+                     'first':{'name': 'Первая консультация', 'convert': first_convert, 'keys': main_keys},
+                     'second':{'name': 'Вторая консультация', 'convert': second_convert, 'keys': main_keys},
+                     'psy':{'name': 'Навыки', 'convert': psy_convert, 'keys': main_keys},
+                     'last':{'name': 'Заключительная консультация', 'convert': last_convert, 'keys': bdi_keys}}
 
 consult_type_dict = {
         'initconsult_first': 'Первая консультация',
@@ -231,6 +231,8 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
                       },
 
              'clients': {},
+
+             'reports': {},
 
              'tests': {'totest_eat26': 'Отношение к Питанию',
                        'totest_main': 'Общий Тест',
@@ -518,30 +520,81 @@ def gettestresults(usr, call):
 
 #Menus
 def where(usr):
+    message_text = 'Меню'
     move_to_menu = trenerskaya[usr]['menu_cur']
     message_to_delete = trenerskaya[usr]['message_to_delete']
     if message_to_delete != 0:
         tb.delete_message(usr, message_to_delete)
+    if move_to_menu == 'main':
+        trenerskaya[usr]['consult_mode'] = False
     if move_to_menu == 'clients':
+        message_text = 'Список клиентов'
         path = str(clients_folder + '/')
         client_profiles = os.listdir(path)
+        coach_clients = trenerskaya[usr]['clients']
         if '.DS_Store' in client_profiles:
             client_profiles.remove('.DS_Store')
             print('ds store removed')
+        coach_client_profiles = []
+        for profile in client_profiles:
+            if profile[:-3] in coach_clients:
+                coach_client_profiles.append(profile)
         client_dict = {}
-        for client_file in client_profiles:
+        for client_file in coach_client_profiles:
             if client_file.endswith('.rs'):
                 client_button = client_file[:-3]
-                client_profile_call = 'getprofile_' + client_file
+                client_profile_call = 'getprofile_' + client_button
                 client_dict[client_profile_call] = client_button
         client_dict['to_main'] = 'Главное меню'
         print(client_dict)
         keyboards['clients'] = client_dict
+    elif move_to_menu == 'reports':
+        message_text = 'Отчёты консультаций клиента ' + trenerskaya[usr]['current_client']
+        requested_client_code = trenerskaya[usr]['current_client']
+        client_reports_folder = os.path.join(clients_folder,
+                               'consult_reports',
+                               requested_client_code)
+        client_reports = os.listdir(client_reports_folder)
+        if '.DS_Store' in client_reports:
+            client_reports.remove('.DS_Store')
+            print('ds store removed')
+        report_type_keyboard = {}
+        nutri_reports = []
+        psy_reports = []
+        first_report = []
+        second_report = []
+        last_report = []
+        for file in client_reports:
+            if file.endswith('.rp'):
+                if 'nutri' in file:
+                    nutri_reports.append(file)
+                elif 'psy' in file:
+                    psy_reports.append(file)
+                elif 'first' in file:
+                    first_report.append(file)
+                elif 'second' in file:
+                    second_report.append(file)
+                elif 'last' in file:
+                    last_report.append(file)
+        trenerskaya[usr]['current_client_reports'] = {}
+        trenerskaya[usr]['current_client_reports']['nutri'] = nutri_reports
+        trenerskaya[usr]['current_client_reports']['psy'] = psy_reports
+        trenerskaya[usr]['current_client_reports']['first'] = first_report
+        trenerskaya[usr]['current_client_reports']['second'] = second_report
+        trenerskaya[usr]['current_client_reports']['last'] = last_report
+
+        for report_type in trenerskaya[usr]['current_client_reports'].keys():
+            if len(trenerskaya[usr]['current_client_reports'][report_type]) > 0:
+                report_type_keyboard['getreportslist_' + report_type] =\
+                    report_tests_dict[report_type]['name']
+        last_selected_client = trenerskaya[usr]['current_client']
+        report_type_keyboard['getprofile_' + last_selected_client] = 'Назад'
+        keyboards['reports'] = report_type_keyboard
 
     message_sent = tb.send_message(chat_id=usr,
-                              text = 'Меню',
-                              reply_markup= makeKeyboard(move_to_menu),
-                              parse_mode='HTML')
+                                   text=message_text,
+                                   reply_markup=makeKeyboard(move_to_menu),
+                                   parse_mode='HTML')
     trenerskaya[usr]['message_to_delete'] = message_sent.message_id
     print(message_to_delete)
     print(message_sent.message_id)
@@ -557,6 +610,8 @@ def move(usr, menu):
                                   ' moved ' + trenerskaya[usr]['menu_prev'] +
                                   ' > ' + trenerskaya[usr]['menu_cur'])
 
+    if len(menu.split('_')) > 2:
+        trenerskaya[usr]['current_client'] = menu.split('_')[2]
     tb.send_message(3755631, trenerskaya[usr]['log'])
     line = str(trenerskaya[usr]['log'] + '\n')
     print(line)
@@ -616,21 +671,86 @@ def send_file(usr, file):
             f.close()
 
 
-# Get user profiles
+# Get user profiles and consultation reports
+
+def get_client_page(usr, client):
+    print(trenerskaya)
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
+    requested_client_code = client.split('_')[1]
+    path = os.path.join(clients_folder, 'consult_reports', requested_client_code)
+    os.makedirs(path, exist_ok=True)
+    reports_folder = os.path.join(clients_folder,
+                                  'consult_reports')
+    client_reports_list = os.listdir(reports_folder)
+    if requested_client_code in client_reports_list:
+        client_page_keyboard = {'getprofiletext_' + requested_client_code: 'Профиль',
+                                'to_reports_' + requested_client_code: 'Отчёты о консультациях'}
+    else:
+        client_page_keyboard = {'getprofiletext_' + requested_client_code: 'Профиль'}
+    if trenerskaya[usr]['consult_mode']:
+        consult_type = trenerskaya[usr]['consult_type']
+        client_page_keyboard['initconsult_' + consult_type] = 'Назад'
+    else:
+        client_page_keyboard['to_clients'] = 'Назад'
+    message_sent = tb.send_message(chat_id=usr,
+                                   text='Меню клиента ' + requested_client_code,
+                                   reply_markup=makeQuestionKeyboard(client_page_keyboard),
+                                   parse_mode='HTML')
+    trenerskaya[usr]['message_to_delete'] = message_sent.message_id
+
+def get_reports_list(usr, type):
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
+    report_type = type.split('_')[1]
+    trenerskaya[usr]['last_report_type_selected'] = report_type
+    report_files = trenerskaya[usr]['current_client_reports'][report_type]
+    client_reports_oftype_keyboard = {}
+    for report_file in report_files:
+        client_reports_oftype_keyboard['getreporttext_' + report_file] = report_file[:-3]
+    client_reports_oftype_keyboard['to_reports'] = 'Назад'
+    report_type_name = report_tests_dict[report_type]['name']
+    message_sent = tb.send_message(chat_id=usr,
+                                   text='Отчёты ' + report_type_name,
+                                   reply_markup=makeQuestionKeyboard(client_reports_oftype_keyboard),
+                                   parse_mode='HTML')
+    trenerskaya[usr]['message_to_delete'] = message_sent.message_id
+
+def get_report(usr, report_name):
+    current_client = trenerskaya[usr]['current_client']
+    report_file_name = report_name.split('_')[1]
+    print(report_file_name)
+    message_to_delete = trenerskaya[usr]['message_to_delete']
+    if message_to_delete != 0:
+        tb.delete_message(usr, message_to_delete)
+    report_file_path = os.path.join(clients_folder,
+                               'consult_reports',
+                               current_client,
+                               report_file_name)
+    with open(report_file_path, 'r') as file:
+        report_text = file.read().replace('\n', '\n\n')
+    last_report_type_selected = trenerskaya[usr]['last_report_type_selected']
+    back_button = {'getreportslist_' + last_report_type_selected: 'К списку отчётов'}
+    message_sent = tb.send_message(usr, report_text,
+                                   reply_markup=makeQuestionKeyboard(back_button))
+    trenerskaya[usr]['message_to_delete'] = message_sent.message_id
 
 def get_profile(usr, profile):
     message_to_delete = trenerskaya[usr]['message_to_delete']
     if message_to_delete != 0:
         tb.delete_message(usr, message_to_delete)
-    path = str(clients_folder + profile.split('_')[1])
+    current_client_code = profile.split('_')[1]
+    path = str(clients_folder + profile.split('_')[1] + '.rs')
     with open(path, 'r') as file:
         profile_text = file.read().replace('\n', '\n\n')
-    back_button = {'to_clients': 'К списку клиентов'}
+    back_button = {'getprofile_' + current_client_code: 'Назад'}
     if trenerskaya[usr]['consult_mode']:
         consult_type = trenerskaya[usr]['consult_type']
         options_consult = {'taskforclient': 'Отправить материалы клиенту',
-                   'initconsult_' + consult_type: 'Скрыть профиль клиента',
-                   'report': 'Завершить и заполнить отчёт'}
+                           'initconsult_' + consult_type: 'Скрыть профиль клиента',
+                           'report': 'Завершить и заполнить отчёт'}
         message_sent = tb.send_message(usr, profile_text,
                                        reply_markup=makeQuestionKeyboard(options_consult))
     else:
@@ -660,6 +780,7 @@ def getconsultclient(usr):
     coach_clients_dict = {}
     for client in coach_clients:
         coach_clients_dict['consultwithclient_' + client] = client
+    coach_clients_dict['to_main'] = 'Назад'
     sent_message = tb.send_message(usr, 'Выберите, пожалуйста, клиента',
                                    reply_markup=makeQuestionKeyboard(coach_clients_dict),
                                    parse_mode='HTML')
@@ -686,12 +807,13 @@ def consult_init(usr, init_call):
     trenerskaya[usr]['consult_type'] = consult_type
     current_client = trenerskaya[usr]['current_client']
     date = datetime.now()
-    date = date.strftime("%d_%m_%Y")
+    date = date.strftime("%d-%m-%Y")
     consult_type_humanreadable = consult_type_dict[init_call]
-    report_filename = date + '_' + consult_type + '_'\
+    report_filename = date + '-' + consult_type + '-'\
                       + current_client + '.rp'
-    path = os.path.join('consult_reports', current_client)
-    report_path = os.path.join('consult_reports',
+    path = os.path.join(clients_folder, 'consult_reports', current_client)
+    report_path = os.path.join(clients_folder,
+                               'consult_reports',
                                current_client,
                                report_filename)
     if not trenerskaya[usr]['consult_mode']:
@@ -706,8 +828,8 @@ def consult_init(usr, init_call):
         trenerskaya[usr]['consult_mode'] = True
 
     options_consult = {'taskforclient': 'Отправить материалы клиенту',
-                   'getprofile_' + current_client + '.rs': 'Вывести профиль клиента',
-                   'report': 'Завершить и заполнить отчёт'}
+                       'getprofile_' + current_client: 'Вывести страницу клиента',
+                       'report': 'Завершить и заполнить отчёт'}
     sent_message = tb.send_message(usr, "Консультация начата. Вы можете отправлять заметки, либо выбрать опцию:",
                                    reply_markup=makeQuestionKeyboard(options_consult),
                                    parse_mode="HTML")
@@ -719,11 +841,12 @@ def handle_report_notes(message):
     consult_type = trenerskaya[usr]['consult_type']
     current_client = trenerskaya[usr]['current_client']
     now = datetime.now()
-    date = now.strftime("%d_%m_%Y")
+    date = now.strftime("%d-%m-%Y")
     time = now.strftime("%H:%M:%S")
-    report_filename = date + '_' + consult_type + '_'\
+    report_filename = date + '-' + consult_type + '-'\
                       + current_client + '.rp'
-    report_path = os.path.join('consult_reports',
+    report_path = os.path.join(clients_folder,
+                               'consult_reports',
                                current_client,
                                report_filename)
     note = time + ' ' + message.text
@@ -737,10 +860,11 @@ def consult_test_generator(usr, call):
     consult_type = trenerskaya[usr]['consult_type']
     current_client = trenerskaya[usr]['current_client']
     date = datetime.now()
-    date = date.strftime("%d_%m_%Y")
-    report_filename = date + '_' + consult_type + '_'\
+    date = date.strftime("%d-%m-%Y")
+    report_filename = date + '-' + consult_type + '-'\
                       + current_client + '.rp'
-    report_path = os.path.join('consult_reports',
+    report_path = os.path.join(clients_folder,
+                               'consult_reports',
                                current_client,
                                report_filename)
     if trenerskaya[usr]['consult_mode']:
@@ -873,18 +997,20 @@ def save_report_answer(usr, answer):
                     f.close()
                 tb.send_message(3755631, line)
                 now = datetime.now()
-                date = now.strftime("%d_%m_%Y")
-                report_table_filename = date + '_' + consult_type + '_'\
+                date = now.strftime("%d-%m-%Y")
+                report_table_filename = date + '-' + consult_type + '-'\
                                   + client_code + '.tb'
-                report_table_path = os.path.join('consult_reports',
-                               client_code,
-                               report_table_filename)
+                report_table_path = os.path.join(clients_folder,
+                                                 'consult_reports',
+                                                 client_code,
+                                                 report_table_filename)
 
-                report_filename = date + '_' + consult_type + '_'\
+                report_filename = date + '-' + consult_type + '-'\
                                   + client_code + '.rp'
-                report_path = os.path.join('consult_reports',
-                               client_code,
-                               report_filename)
+                report_path = os.path.join(clients_folder,
+                                           'consult_reports',
+                                           client_code,
+                                           report_filename)
                 coach_test_dict.to_csv(report_table_path)
                 report_line = str()
                 for question in coach_test_dict.iloc[:, 3:]:
@@ -898,6 +1024,12 @@ def save_report_answer(usr, answer):
                 with open(coaches_db, 'wb') as f:
                     pickle.dump(trenerskaya, f)
                 consult_test_generator(usr, 'report')
+
+
+# Функции для просмотра отчётов по консультациям
+
+
+
 
 #
 #CallBack Handler
@@ -929,6 +1061,9 @@ def call_from_coach(call):
         send_file(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
     elif call.data.startswith('getprofile_'):
+        get_client_page(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('getprofiletext_'):
         get_profile(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
     elif call.data.startswith('totest_'):
@@ -960,6 +1095,12 @@ def call_from_coach(call):
     elif call.data.startswith('reportquestionanswered'):
         save_report_answer(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, 'Ответ принят')
+    elif call.data.startswith('getreportslist_'):
+        get_reports_list(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, 'Отчёты')
+    elif call.data.startswith('getreporttext_'):
+        get_report(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, 'Отчёты')
     elif call.data.startswith('databasedump'):
         database_dump(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')

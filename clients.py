@@ -1,5 +1,13 @@
-clients_dict = {
-        'Artemii':[
-            'uPfzA1Dc', 
-            'uQ1mCGuE'
-            ]}
+clients_dict = {'Artemii': ['0iTpqUmV','f2vBGdZ3', 'uPfzA1Dc', 'uQ1mCGuE'],
+                "Ксения Календарева": ['0iTpqUmV', '2mxfWsYr', '4UAChTPV'],
+                "trener.idel": ['8Rwmb9zT', 'bh48BHvL', 'doCLmNR7'],
+                "Дарья": ['drPkrgh2', 'EGKXRj9W', 'f2vBGdZ3'],
+                "Янина": ['F4hHKoy7', 'FowupAeK', 'gCEfl5aE'],
+                "Ирина": ['GGoUgMFF', 'gkcvbcel', 'h9leJQAA'],
+                "Анастасия": ['j1ksJm3B', 'JGMpV5iD', 'JsPsd0zJ'],
+                "Наталья Лаврененко": ['jY4dGDqL', 'L1xwbeTy', 'n3EItm9h'],
+                "Наталья Минажетдинова": ['nBcgwHm0', 'NCwwbrbX', 'NEE2Zs9F'],
+                "Артем": ['nlhozmAX', 'sZcAIIgN', 'uPfzA1Dc'],
+                "Елена": ['uQ1mCGuE', 'VC76ZTjZ', 'Xwmw1SwW'],
+                "Artemii Nikitin": ['0iTpqUmV','f2vBGdZ3', 'uPfzA1Dc', 'uQ1mCGuE'],
+                "Оксана Круглова": ['Yk0eYKK2', 'yNFKr044', 'ZDa1oMMP']}
