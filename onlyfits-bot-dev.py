@@ -105,11 +105,11 @@ tests_dict = {'eat26':{'convert': eat26_convert, 'keys': eat26_keys},
               'main':{'convert': main_convert, 'keys': main_keys},
               'bdi':{'convert': bdi_convert, 'keys': bdi_keys}}
 
-report_tests_dict = {'nutri':{'name': 'Питание и активность', 'convert': nutri_convert, 'keys': eat26_keys},
-                     'first':{'name': 'Первая консультация', 'convert': first_convert, 'keys': main_keys},
-                     'second':{'name': 'Вторая консультация', 'convert': second_convert, 'keys': main_keys},
-                     'psy':{'name': 'Навыки', 'convert': psy_convert, 'keys': main_keys},
-                     'last':{'name': 'Заключительная консультация', 'convert': last_convert, 'keys': bdi_keys}}
+report_tests_dict = {'nutri':{'name': 'Питание и активность', 'convert': nutri_convert},
+                     'first':{'name': 'Первая консультация', 'convert': first_convert},
+                     'second':{'name': 'Вторая консультация', 'convert': second_convert},
+                     'psy':{'name': 'Навыки', 'convert': psy_convert},
+                     'last':{'name': 'Заключительная консультация', 'convert': last_convert}}
 
 consult_type_dict = {
         'initconsult_first': 'Первая консультация',
@@ -1050,7 +1050,7 @@ def call_from_user(call):
     elif call.data.startswith('gettestresults'):
         gettestresults(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
-
+z
 # Обрабатывает нажатия кнопок кураторами
 @tb.callback_query_handler(func=lambda call: call.from_user.id in coaches.keys())
 def call_from_coach(call):
