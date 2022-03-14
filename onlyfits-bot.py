@@ -32,7 +32,7 @@ tb = telebot.TeleBot(TOKEN)
 
 files_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/Материалы/resources/'
 clients_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/.2930/'
-
+bot_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/'
 tests = ['eat26', 'main', 'bdi']
 
 eat26_convert = pd.read_csv(
@@ -81,8 +81,9 @@ coaches = {520834290:"Ксения Календарева", 594759110:"Елен�
            3755631:"Artemii",
            970257969: "Наталья Минажетдинова",
            388199486: "Артем",
-           234047265: "Оксана Круглова",
-           2019105955:"Artemii Nikitin"}
+           234047265: "Оксана Круглова"}
+    #,
+    #      2019105955:"Artemii Nikitin"}
 
 coaches_test = {3755631:"Artemii"}
     #, 2019105955:"Artemii Nikitin"}
@@ -164,8 +165,11 @@ def database_dump(usr, call):
 def handle_messages(messages):
     for message in messages:
         #Sign Up
-        if trenerskaya[message.from_user.id]['consult_mode']:
-            handle_report_notes(message)
+        if message.chat.id in coaches.keys():
+            if trenerskaya[message.from_user.id]['consult_mode']:
+                handle_report_notes(message)
+            elif message.text != '/start':
+                where(message.chat.id)
         elif message.text == 'database_dump_2929':
             dump_reply = db_dump()
             tb.send_message(message.chat.id, text=str(current_users + dump_reply))
@@ -181,8 +185,9 @@ def handle_messages(messages):
             tb.register_next_step_handler(getnamemsg, get_name)
         elif message.chat.id in ids:
             move(message.chat.id, 'to_admin')
-        elif message.text != '/start':
-            where(message.chat.id)
+        elif message.chat.id not in coaches.keys():
+            handle_client(message)
+
 
 def get_name(message):
     cid = message.chat.id
@@ -417,6 +422,7 @@ def save_text_answer(message):
              str(current_question_code) + '_' + str(answer_text)
     print(answer)
     save_answer(message.from_user.id, answer)
+
 
 def save_answer(usr, answer):
     print('save_answer function active')
@@ -1024,10 +1030,70 @@ def save_report_answer(usr, answer):
                 consult_test_generator(usr, 'report')
 
 
-# Функции для просмотра отчётов по консультациям
+# Функции для клиентов
+
+def handle_client(message):
+    client_telegram_id = message.from_user.id
+    client_file_list = os.listdir('temp_client_dataframes')
+    #print(client_file_list)
+    current_client_files_list = list()
+    file_datetime_list = list()
+    current_client_file_recent = str()
+
+    for filename in client_file_list:
+        if str(client_telegram_id) in filename:
+            if filename.startswith('all_tests_program_generated-'):
+                current_client_files_list.append(filename)
+    print(current_client_files_list)
+    if len(current_client_files_list) > 0:
+        for current_client_file in current_client_files_list:
+            filename_elements = current_client_file.split('-')
+            file_datetime_str = filename_elements[2]
+            file_datetime_str = file_datetime_str[:-4]
+            file_datetime = datetime.strptime(file_datetime_str, '%d_%m_%Y %H_%M_%S')
+            file_datetime_list.append(file_datetime)
+        file_datetime_list.sort()
+        last_datetime_index = len(file_datetime_list) - 1
+        print(file_datetime_list)
+        print(last_datetime_index)
+        recent_file_datetime = file_datetime_list[last_datetime_index]
+        recent_file_datetime_str = recent_file_datetime.strftime('%d_%m_%Y %H_%M_%S')
+        for current_client_file in current_client_files_list:
+            if recent_file_datetime_str in current_client_file:
+                current_client_file_recent = current_client_file
+        print(current_client_file_recent)
+        file_path = os.path.join(bot_folder,
+                                 'temp_client_dataframes',
+                                 current_client_file_recent)
+        client_dataframe = pd.read_csv(file_path)
+        client_code = client_dataframe['client_code'].item()
+        current_users[client_telegram_id]['client_code'] = client_code
+        print(current_users[client_telegram_id]['client_code'])
+        client_main_keyboard = {"clientrequest_plan": "Запланировать",
+                                "clientrequest_diary": "Сделать запись",
+                                "clientrequest_homework": "Домашнее задание",
+                                "clientrequest_file": "Отправить файл"}
+        tb.send_message(client_telegram_id, "Выберите, пожалуйста, действие",
+                        reply_markup=makeQuestionKeyboard(client_main_keyboard),
+                        parse_mode="HTML")
+    else:
+        tb.send_message(client_telegram_id,
+                        "Введите, пожалуйста, существующий пароль, чтобы пройти диагностический тест.")
 
 
-
+def handle_client_request(usr, request_call):
+    client_telegram_id = usr
+    action = request_call.split('_')[1]
+    if action == 'diary':
+        client_action_keyboard = {"clientrequest_meal": "Приём пищи",
+                                  "clientrequest_activity": "Физическая активность",
+                                  "clientrequest_comment": "Комментарий"}
+    if action == 'meal':
+        client_action_keyboard = {"clientrequest_main": "Основной приём пищи",
+                                  "clientrequest_snack": "Перекус"}
+    tb.send_message(client_telegram_id, "Выберите, пожалуйста, вид записи",
+            reply_markup=makeQuestionKeyboard(client_action_keyboard),
+            parse_mode="HTML")
 
 #
 #CallBack Handler
@@ -1047,6 +1113,9 @@ def call_from_user(call):
         tb.answer_callback_query(call.id, pop_text)
     elif call.data.startswith('gettestresults'):
         gettestresults(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('clientrequest_'):
+        handle_client_request(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
 
 # Обрабатывает нажатия кнопок кураторами
