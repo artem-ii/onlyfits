@@ -3,6 +3,8 @@ from telebot import types
 import time
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from datetime import datetime
 import os
 import textwrap
@@ -31,10 +33,10 @@ testTOKEN = "288367920:AAEuc2Lqw94_jG3Qi0j_7Uqh4FSuGKHl-zw"
 tb = telebot.TeleBot(TOKEN)
 
 files_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/Материалы/resources/'
-clients_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/.2930/'
+clients_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/.03/'
 bot_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/'
 tests = ['eat26', 'main', 'bdi']
-
+passwords = ['betatester', 'Th6ydI8', 'JKz82e7']
 eat26_convert = pd.read_csv(
     '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/Предзапись/eat26-convert-for-bot.csv',
     sep = ';', dtype = str)
@@ -71,7 +73,6 @@ second_convert = pd.read_csv(
 last_convert = pd.read_csv(
     '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/bot/report_tests/last_report.csv',
     sep = ';', dtype = str)
-
 
 
 # User id info
@@ -130,9 +131,7 @@ consult_type_dict = {
 @tb.message_handler(commands=['start', 'help'])
 def handle_start(message):
     if message.chat.id not in coaches:
-        tb.reply_to(message,
-                    "Здравствуйте. Пожалуйста, зарегистрируйтесь, нажав на кнопку ниже, либо введите пароль: ",
-                    reply_markup=markup0)
+        tb.reply_to(message, "Здравствуйте. Пожалуйста, введите пароль: ")
     else:
         where(message.chat.id)
 
@@ -165,7 +164,9 @@ def database_dump(usr, call):
 def handle_messages(messages):
     for message in messages:
         #Sign Up
-        if message.chat.id in coaches.keys():
+        if message.chat.id in ids:
+            move(message.chat.id, 'to_admin')
+        elif message.chat.id in coaches.keys():
             if trenerskaya[message.from_user.id]['consult_mode']:
                 handle_report_notes(message)
             elif message.text != '/start':
@@ -173,7 +174,7 @@ def handle_messages(messages):
         elif message.text == 'database_dump_2929':
             dump_reply = db_dump()
             tb.send_message(message.chat.id, text=str(current_users + dump_reply))
-        elif message.text == 'betatester':
+        elif message.text in passwords:
             test_mainscreen(message)
         elif message.text == 'Регистрация':
             line = str('\n'+ str(message.from_user) + ' - ' + str(message.chat.id))
@@ -183,8 +184,6 @@ def handle_messages(messages):
             getnamemsg = tb.send_message(message.chat.id, "Здравствуйте! Введите, пожалуйста, Ваше имя",
                                          reply_markup=types.ReplyKeyboardRemove())
             tb.register_next_step_handler(getnamemsg, get_name)
-        elif message.chat.id in ids:
-            move(message.chat.id, 'to_admin')
         elif message.chat.id not in coaches.keys():
             handle_client(message)
 
@@ -1048,6 +1047,7 @@ def handle_client(message):
 
     if message_to_delete not in [-1, 0]:
         try:
+            print('trying to delete...')
             tb.delete_message(usr, message_to_delete)
         except:
             pass
@@ -1091,7 +1091,8 @@ def handle_client(message):
         client_main_keyboard = {"clientrequest_plan": "Запланировать",
                                 "clientrequest_diary": "Сделать запись",
                                 "clientrequest_homework": "Домашнее задание",
-                                "clientrequest_file": "Отправить файл"}
+                                "clientrequest_file": "Отправить файл",
+                                "clientrequest_report": "Посмотреть мои записи"}
         message_sent = tb.send_message(client_telegram_id, "Выберите, пожалуйста, действие",
                                        reply_markup=makeQuestionKeyboard(client_main_keyboard),
                                        parse_mode="HTML")
@@ -1101,8 +1102,24 @@ def handle_client(message):
     current_users[usr]['message_to_delete'] = message_sent.message_id
     print(current_users[usr]['message_to_delete'])
 
+
+record_type_human_readable_dict = {'food': 'Еда',
+                                   'place': 'Место',
+                                   'foodcomment': 'Комментарии',
+                                   'activcomment': 'Комментарии',
+                                   'mainmeal': 'Основной приём пищи',
+                                   'snack': 'Перекус',
+                                   'activity': 'Физическая активность',
+                                   'activtype': 'Тип активности',
+                                   'activtime': 'Длительность активности'
+                                   }
+
 def handle_client_request(usr, request_call):
+    overeat = False
+    save = False
     print(current_users[usr])
+    print(current_users[usr]['message_to_delete'])
+    print(request_call)
     if 'message_to_delete' in current_users[usr].keys():
         message_to_delete = current_users[usr]['message_to_delete']
     else:
@@ -1110,7 +1127,9 @@ def handle_client_request(usr, request_call):
         message_to_delete = current_users[usr]['message_to_delete']
 
     if message_to_delete not in [-1, 0]:
+        print('not zero')
         try:
+            print('Trying to delete...')
             tb.delete_message(usr, message_to_delete)
         except:
             pass
@@ -1127,40 +1146,124 @@ def handle_client_request(usr, request_call):
         current_users[client_telegram_id]['diary_record'] = client_diary_record
 
     elif action == 'meal':
+        client_diary_record = pd.DataFrame()
         client_action_keyboard = {"clientrequest_mainmeal": "Основной приём пищи",
                                   "clientrequest_snack": "Перекус"}
-    elif action == 'mainmeal':
+
+    elif action == 'mainmeal' or action == 'snack':
+        print('mainmeal')
         client_diary_record = current_users[client_telegram_id]['diary_record']
-        client_diary_record['Тип записи'] = ['Основной приём пищи']
+        client_diary_record['Тип записи'] = record_type_human_readable_dict[action]
         current_users[client_telegram_id]['diary_record'] = client_diary_record
         client_action_keyboard = {"clientrequest_rec.food": "Что вы съели?",
                                   "clientrequest_rec.place": "Где вы это съели?",
                                   "clientrequest_rec.foodcomment": "Комментарии",
-                                  "clientrequest_overeat": "Нажмите, если переели"
+                                  "clientrequest_overeat": "Нажмите, если переели",
+                                  "clientrequest_save": "Сохранить"
+                                  }
+
+    elif action == 'activity':
+        client_diary_record = current_users[client_telegram_id]['diary_record']
+        client_diary_record['Тип записи'] = record_type_human_readable_dict[action]
+        current_users[client_telegram_id]['diary_record'] = client_diary_record
+        client_action_keyboard = {"clientrequest_rec.activtype": "Что вы делали?",
+                                  "clientrequest_rec.activtime": "Длительность активности (мин)",
+                                  "clientrequest_rec.activcomment": "Комментарии",
+                                  "clientrequest_save": "Сохранить"
                                   }
     elif action == 'overeat':
         client_diary_record = current_users[client_telegram_id]['diary_record']
         client_diary_record['*'] = ['Да']
         current_users[client_telegram_id]['diary_record'] = client_diary_record
+        record_type_hr = client_diary_record['Тип записи'].item()
+        record_type = \
+        list(record_type_human_readable_dict.keys())[list(
+            record_type_human_readable_dict.values()).index(record_type_hr)]
+        client_action_keyboard = 0
+        current_users[usr]['message_to_delete'] = 0
+        handle_client_request(usr, 'clientrequest_' + record_type)
+        overeat = True
+
+    elif action == 'save':
+        save = True
+        client_diary_record = current_users[client_telegram_id]['diary_record']
+        diary_files_path = os.path.join(clients_folder,
+                                        'diary_files')
+        os.makedirs(diary_files_path, exist_ok=True)
+        diary_files = os.listdir(diary_files_path)
+        client_diary_filename = current_users[client_telegram_id]['client_code'] + '.dr'
+        client_diary_files = list()
+        for file in diary_files:
+            if file == client_diary_filename:
+                client_diary_files.append(file)
+        print(client_diary_files)
+        client_diary_file_path = os.path.join(diary_files_path,
+                                              client_diary_filename)
+        if client_diary_files == []:
+            client_diary_record.to_csv(client_diary_file_path, encoding='utf8', index=False)
+        else:
+            client_diary_dataframe = pd.read_csv(client_diary_file_path)
+            diary_df_list = [client_diary_dataframe, client_diary_record]
+            updated_diary_df = pd.concat(diary_df_list, ignore_index=True)
+            updated_diary_df.to_csv(client_diary_file_path, encoding='utf8', index=False)
+        tb.send_message(client_telegram_id, "Запись сохранена, отправьте любое сообщение, "
+                                            "чтобы сделать новую запись или посмотреть существующие.")
+        client_action_keyboard = 0
+        #client_action_keyboard = {"clientrequest_plan": "Запланировать",
+        #                        "clientrequest_diary": "Сделать запись",
+        #                        "clientrequest_homework": "Домашнее задание",
+        #                        "clientrequest_file": "Отправить файл"}
+
+    # elif action == 'report':
+    #     client_diary_record = current_users[client_telegram_id]['diary_record']
+    #     diary_files_path = os.path.join(clients_folder,
+    #                                     'diary_files')
+    #     os.makedirs(diary_files_path, exist_ok=True)
+    #     diary_files = os.listdir(diary_files_path)
+    #     client_diary_filename = current_users[client_telegram_id]['client_code'] + '.dr'
+    #     client_diary_files = list()
+    #     for file in diary_files:
+    #         if file == client_diary_filename:
+    #             client_diary_files.append(file)
+    #     print(client_diary_files)
+    #     client_diary_file_path = os.path.join(diary_files_path,client_diary_filename)
+    #     client_diary_dataframe = pd.read_csv(client_diary_file_path)
+    #     #https://stackoverflow.com/questions/32137396/how-do-i-plot-only-a-table-in-matplotlib
+    #     fig, ax =plt.subplots(figsize=(12,4))
+    #     ax.axis('tight')
+    #     ax.axis('off')
+    #     the_table = ax.table(cellText=df.values,colLabels=df.columns,loc='center')
+    #
+    #     #https://stackoverflow.com/questions/4042192/reduce-left-and-right-margins-in-matplotlib-plot
+    #     pp = PdfPages("foo.pdf")
+    #     pp.savefig(fig, bbox_inches='tight')
+    #     pp.close()
     elif action.startswith('rec'):
         record_type = action.split('.')[1]
         current_users[usr]['record_type'] = record_type
         client_action_keyboard = {}
         print(record_type)
+
     if client_action_keyboard == {}:
+        print('Waiting input from user...')
         message_sent = tb.send_message(client_telegram_id, "Введите, пожалуйста, запись")
         tb.register_next_step_handler(message_sent, make_diary_record)
+    elif overeat:
+        print('Overeat record made')
+    elif save:
+        print('Diary record saved')
     else:
+        print('Menu generated')
         message_sent = tb.send_message(client_telegram_id, "Выберите, пожалуйста, вид записи",
                                        reply_markup=makeQuestionKeyboard(client_action_keyboard),
                                        parse_mode="HTML")
-    current_users[usr]['message_to_delete'] = message_sent.message_id
-    print(current_users[usr]['message_to_delete'])
+    if not overeat:
+        try:
+            current_users[usr]['message_to_delete'] = message_sent.message_id
+            print(current_users[usr]['message_to_delete'])
+        except:
+            pass
 
-record_type_human_readable_dict = {'food': 'Еда',
-                                   'place': 'Место',
-                                   'foodcomment': 'Комментарии'
-                                   }
 
 def make_diary_record(message):
     client_telegram_id = message.from_user.id
@@ -1170,6 +1273,12 @@ def make_diary_record(message):
     client_diary_record[record_type_human_readable] = [message.text]
     current_users[client_telegram_id]['diary_record'] = client_diary_record
     print(client_diary_record)
+    parent_record_type_hr = current_users[client_telegram_id]['diary_record']['Тип записи'].item()
+    parent_record_type = \
+        list(record_type_human_readable_dict.keys())[list(
+            record_type_human_readable_dict.values()).index(parent_record_type_hr)]
+    call_argument = 'clientrequest_' + parent_record_type
+    handle_client_request(client_telegram_id, call_argument)
 #
 #CallBack Handler
 
