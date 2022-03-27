@@ -1111,7 +1111,8 @@ record_type_human_readable_dict = {'food': 'Еда',
                                    'snack': 'Перекус',
                                    'activity': 'Физическая активность',
                                    'activtype': 'Тип активности',
-                                   'activtime': 'Длительность активности'
+                                   'activtime': 'Длительность активности',
+                                   'comment': 'Комментарии'
                                    }
 
 def handle_client_request(usr, request_call):
@@ -1139,7 +1140,7 @@ def handle_client_request(usr, request_call):
     if action == 'diary':
         client_action_keyboard = {"clientrequest_meal": "Приём пищи",
                                   "clientrequest_activity": "Физическая активность",
-                                  "clientrequest_comment": "Комментарий"}
+                                  "clientrequest_rec.comment": "Комментарий"}
         client_diary_record = pd.DataFrame()
         client_diary_record['Дата'] = [get_time().split(' ')[0]]
         client_diary_record['Время'] = [get_time().split(' ')[1]]
@@ -1184,6 +1185,9 @@ def handle_client_request(usr, request_call):
         handle_client_request(usr, 'clientrequest_' + record_type)
         overeat = True
 
+#    elif action == 'homework':
+
+
     elif action == 'save':
         save = True
         client_diary_record = current_users[client_telegram_id]['diary_record']
@@ -1214,30 +1218,75 @@ def handle_client_request(usr, request_call):
         #                        "clientrequest_homework": "Домашнее задание",
         #                        "clientrequest_file": "Отправить файл"}
 
-    # elif action == 'report':
-    #     client_diary_record = current_users[client_telegram_id]['diary_record']
-    #     diary_files_path = os.path.join(clients_folder,
-    #                                     'diary_files')
-    #     os.makedirs(diary_files_path, exist_ok=True)
-    #     diary_files = os.listdir(diary_files_path)
-    #     client_diary_filename = current_users[client_telegram_id]['client_code'] + '.dr'
-    #     client_diary_files = list()
-    #     for file in diary_files:
-    #         if file == client_diary_filename:
-    #             client_diary_files.append(file)
-    #     print(client_diary_files)
-    #     client_diary_file_path = os.path.join(diary_files_path,client_diary_filename)
-    #     client_diary_dataframe = pd.read_csv(client_diary_file_path)
-    #     #https://stackoverflow.com/questions/32137396/how-do-i-plot-only-a-table-in-matplotlib
-    #     fig, ax =plt.subplots(figsize=(12,4))
-    #     ax.axis('tight')
-    #     ax.axis('off')
-    #     the_table = ax.table(cellText=df.values,colLabels=df.columns,loc='center')
-    #
-    #     #https://stackoverflow.com/questions/4042192/reduce-left-and-right-margins-in-matplotlib-plot
-    #     pp = PdfPages("foo.pdf")
-    #     pp.savefig(fig, bbox_inches='tight')
-    #     pp.close()
+    elif action == 'report':
+        current_users[usr]['diary_pdf_files'] = {}
+        diary_files_path = os.path.join(clients_folder,
+                                        'diary_files')
+        os.makedirs(diary_files_path, exist_ok=True)
+        diary_files = os.listdir(diary_files_path)
+        client_diary_filename = current_users[client_telegram_id]['client_code'] + '.dr'
+        client_diary_files = list()
+        for file in diary_files:
+            if file == client_diary_filename:
+                client_diary_files.append(file)
+        print(client_diary_files)
+        client_diary_file_path = os.path.join(diary_files_path, client_diary_filename)
+        client_diary_dataframe = pd.read_csv(client_diary_file_path)
+
+        diary_page = pd.DataFrame()
+        for ind, diary_record in client_diary_dataframe.iterrows():
+            print(diary_record)
+            print(type(diary_record))
+            record_date = diary_record['Дата']
+            record_date = datetime.strptime(record_date, '%d/%m/%Y')
+            diary_pages_list = [diary_page, diary_record.to_frame().T]
+            if len(diary_page) == 0:
+                diary_page = diary_record.to_frame().T
+            else:
+                diary_page = pd.concat(diary_pages_list, ignore_index=True)
+            print(diary_page)
+            if ind == 0:
+                start_date = record_date
+            elif (record_date - start_date).days == 7:
+                start_date_str = start_date.strftime('%d-%m-%Y')
+                record_date_str = record_date.strftime('%d-%m-%Y')
+                report_filename = start_date_str + ' - ' + record_date_str + '.pdf'
+                current_users[usr]['diary_pdf_files'][report_filename] = diary_page
+                diary_page = pd.DataFrame()
+                try:
+                    start_date = client_diary_dataframe.loc[:, "Дата"]
+                    start_date = start_date.iloc[ind + 1, :]
+                    start_date = start_date.item()
+                    start_date = datetime.strptime(start_date, '%d/%m/%Y')
+                except:
+                    print(start_date)
+            elif ind == len(client_diary_dataframe)-1:
+                start_date_str = start_date.strftime('%d-%m-%Y')
+                record_date_str = record_date.strftime('%d-%m-%Y')
+                report_filename = start_date_str + ' - ' + record_date_str + '.pdf'
+                current_users[usr]['diary_pdf_files'][report_filename] = diary_page
+                diary_page = pd.DataFrame()
+                current_users[usr]['diary_pdf_files'][report_filename].head()
+                print(current_users[usr]['diary_pdf_files'])
+
+            for report in current_users[usr]['diary_pdf_files'].values():
+                #report = report.dropna()
+                print(type(report))
+                # https://stackoverflow.com/questions/32137396/how-do-i-plot-only-a-table-in-matplotlib
+                fig, ax = plt.subplots(figsize=(12, 4))
+                print(fig)
+                print(ax)
+                ax.axis('tight')
+                ax.axis('off')
+                the_table = ax.table(cellText=report.values, colLabels=report.columns, loc='center')
+
+                # https://stackoverflow.com/questions/4042192/reduce-left-and-right-margins-in-matplotlib-plot
+                pp = PdfPages("foo.pdf")
+                pp.savefig(fig, bbox_inches='tight')
+                pp.close()
+                report_path = os.path.join(bot_folder, 'foo.pdf')
+                doc = open(report_path, 'rb')
+                tb.send_document(usr, doc)
     elif action.startswith('rec'):
         record_type = action.split('.')[1]
         current_users[usr]['record_type'] = record_type
@@ -1278,7 +1327,10 @@ def make_diary_record(message):
         list(record_type_human_readable_dict.keys())[list(
             record_type_human_readable_dict.values()).index(parent_record_type_hr)]
     call_argument = 'clientrequest_' + parent_record_type
-    handle_client_request(client_telegram_id, call_argument)
+    if record_type == 'comment':
+        handle_client_request(client_telegram_id, 'clientrequest_save')
+    else:
+        handle_client_request(client_telegram_id, call_argument)
 #
 #CallBack Handler
 
