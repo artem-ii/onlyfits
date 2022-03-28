@@ -236,6 +236,8 @@ keyboards = {'admin': {'send_message': 'Отправить сообщение',
 
              'reports': {},
 
+             'homework': {},
+
              'tests': {'totest_eat26': 'Отношение к Питанию',
                        'totest_main': 'Общий Тест',
                        'totest_bdi': 'Настроение'
@@ -599,7 +601,17 @@ def where(usr):
         last_selected_client = trenerskaya[usr]['current_client']
         report_type_keyboard['getprofile_' + last_selected_client] = 'Назад'
         keyboards['reports'] = report_type_keyboard
+    elif move_to_menu == 'homework':
+        message_text = 'Домашние задания'
 
+        homework_folder = os.path.join(bot_folder, 'homework')
+        homeworks = os.listdir(homework_folder)
+        if '.DS_Store' in homeworks:
+            homeworks.remove('.DS_Store')
+            print('ds store removed')
+        homeworkkeys = [('givehomework_' + x) for x in homeworks]
+        homeworks_dict = dict(zip(homeworkkeys, homeworks))
+        keyboards['homework'] = homeworks_dict
     message_sent = tb.send_message(chat_id=usr,
                                    text=message_text,
                                    reply_markup=makeKeyboard(move_to_menu),
@@ -608,7 +620,56 @@ def where(usr):
     print(message_to_delete)
     print(message_sent.message_id)
 
+def givehomework(usr, call):
+    homework = call.split('_')[1]
+    requested_client_code = trenerskaya[usr]['current_client']
+    print(requested_client_code)
+    print(current_users.keys())
+    for client in current_users.keys():
+        print(client)
+        if client != 'init':
+            print(current_users[client])
+            client_telegram_id = client
+            client_file_list = os.listdir('temp_client_dataframes')
+            #print(client_file_list)
+            current_client_files_list = list()
+            file_datetime_list = list()
+            current_client_file_recent = str()
 
+            for filename in client_file_list:
+                if str(client_telegram_id) in filename:
+                    if filename.startswith('all_tests_program_generated-'):
+                        current_client_files_list.append(filename)
+            print(current_client_files_list)
+            if len(current_client_files_list) > 0:
+                if 'client_code' not in current_users[client]:
+                    for current_client_file in current_client_files_list:
+                        filename_elements = current_client_file.split('-')
+                        file_datetime_str = filename_elements[2]
+                        file_datetime_str = file_datetime_str[:-4]
+                        file_datetime = datetime.strptime(file_datetime_str, '%d_%m_%Y %H_%M_%S')
+                        file_datetime_list.append(file_datetime)
+                    file_datetime_list.sort()
+                    last_datetime_index = len(file_datetime_list) - 1
+                    print(file_datetime_list)
+                    print(last_datetime_index)
+                    recent_file_datetime = file_datetime_list[last_datetime_index]
+                    recent_file_datetime_str = recent_file_datetime.strftime('%d_%m_%Y %H_%M_%S')
+                    for current_client_file in current_client_files_list:
+                        if recent_file_datetime_str in current_client_file:
+                            current_client_file_recent = current_client_file
+                    print(current_client_file_recent)
+                    file_path = os.path.join(bot_folder,
+                                             'temp_client_dataframes',
+                                             current_client_file_recent)
+                    client_dataframe = pd.read_csv(file_path)
+                    client_code = client_dataframe['client_code'].item()
+                    current_users[client_telegram_id]['client_code'] = client_code
+                    print(current_users[client_telegram_id]['client_code'])
+            if current_users[client]['client_code'] == requested_client_code:
+                current_users[client]['homework'] = homework
+                print(current_users)
+                pass
 
 # Обрабатывает перемещения по меню
 def move(usr, menu):
@@ -695,7 +756,8 @@ def get_client_page(usr, client):
     client_reports_list = os.listdir(reports_folder)
     if requested_client_code in client_reports_list:
         client_page_keyboard = {'getprofiletext_' + requested_client_code: 'Профиль',
-                                'to_reports_' + requested_client_code: 'Отчёты о консультациях'}
+                                'to_reports_' + requested_client_code: 'Отчёты о консультациях',
+                                'to_homework_' + requested_client_code: 'Задать домашнее задание'}
     else:
         client_page_keyboard = {'getprofiletext_' + requested_client_code: 'Профиль'}
     if trenerskaya[usr]['consult_mode']:
@@ -1065,37 +1127,38 @@ def handle_client(message):
                 current_client_files_list.append(filename)
     print(current_client_files_list)
     if len(current_client_files_list) > 0:
-        for current_client_file in current_client_files_list:
-            filename_elements = current_client_file.split('-')
-            file_datetime_str = filename_elements[2]
-            file_datetime_str = file_datetime_str[:-4]
-            file_datetime = datetime.strptime(file_datetime_str, '%d_%m_%Y %H_%M_%S')
-            file_datetime_list.append(file_datetime)
-        file_datetime_list.sort()
-        last_datetime_index = len(file_datetime_list) - 1
-        print(file_datetime_list)
-        print(last_datetime_index)
-        recent_file_datetime = file_datetime_list[last_datetime_index]
-        recent_file_datetime_str = recent_file_datetime.strftime('%d_%m_%Y %H_%M_%S')
-        for current_client_file in current_client_files_list:
-            if recent_file_datetime_str in current_client_file:
-                current_client_file_recent = current_client_file
-        print(current_client_file_recent)
-        file_path = os.path.join(bot_folder,
-                                 'temp_client_dataframes',
-                                 current_client_file_recent)
-        client_dataframe = pd.read_csv(file_path)
-        client_code = client_dataframe['client_code'].item()
-        current_users[client_telegram_id]['client_code'] = client_code
-        print(current_users[client_telegram_id]['client_code'])
+        if 'client_code' not in current_users[usr]:
+            for current_client_file in current_client_files_list:
+                filename_elements = current_client_file.split('-')
+                file_datetime_str = filename_elements[2]
+                file_datetime_str = file_datetime_str[:-4]
+                file_datetime = datetime.strptime(file_datetime_str, '%d_%m_%Y %H_%M_%S')
+                file_datetime_list.append(file_datetime)
+            file_datetime_list.sort()
+            last_datetime_index = len(file_datetime_list) - 1
+            print(file_datetime_list)
+            print(last_datetime_index)
+            recent_file_datetime = file_datetime_list[last_datetime_index]
+            recent_file_datetime_str = recent_file_datetime.strftime('%d_%m_%Y %H_%M_%S')
+            for current_client_file in current_client_files_list:
+                if recent_file_datetime_str in current_client_file:
+                    current_client_file_recent = current_client_file
+            print(current_client_file_recent)
+            file_path = os.path.join(bot_folder,
+                                     'temp_client_dataframes',
+                                     current_client_file_recent)
+            client_dataframe = pd.read_csv(file_path)
+            client_code = client_dataframe['client_code'].item()
+            current_users[client_telegram_id]['client_code'] = client_code
+            print(current_users[client_telegram_id]['client_code'])
         client_main_keyboard = {"clientrequest_plan": "Запланировать",
                                 "clientrequest_diary": "Сделать запись",
                                 "clientrequest_homework": "Домашнее задание",
                                 "clientrequest_file": "Отправить файл",
                                 "clientrequest_report": "Посмотреть мои записи"}
         message_sent = tb.send_message(client_telegram_id, "Выберите, пожалуйста, действие",
-                                       reply_markup=makeQuestionKeyboard(client_main_keyboard),
-                                       parse_mode="HTML")
+                               reply_markup=makeQuestionKeyboard(client_main_keyboard),
+                               parse_mode="HTML")
     else:
         message_sent = tb.send_message(client_telegram_id,
                                        "Введите, пожалуйста, существующий пароль, чтобы пройти диагностический тест.")
@@ -1185,7 +1248,7 @@ def handle_client_request(usr, request_call):
         handle_client_request(usr, 'clientrequest_' + record_type)
         overeat = True
 
-#    elif action == 'homework':
+    #elif action == 'homework':
 
 
     elif action == 'save':
@@ -1287,9 +1350,15 @@ def handle_client_request(usr, request_call):
                 report_path = os.path.join(bot_folder, 'foo.pdf')
                 doc = open(report_path, 'rb')
                 tb.send_document(usr, doc)
+    elif action == 'homework':
+        starthomework(client_telegram_id)
     elif action.startswith('rec'):
         record_type = action.split('.')[1]
         current_users[usr]['record_type'] = record_type
+        if record_type == 'comment':
+            client_diary_record = current_users[client_telegram_id]['diary_record']
+            client_diary_record['Тип записи'] = record_type_human_readable_dict[record_type]
+            current_users[client_telegram_id]['diary_record'] = client_diary_record
         client_action_keyboard = {}
         print(record_type)
 
@@ -1331,6 +1400,79 @@ def make_diary_record(message):
         handle_client_request(client_telegram_id, 'clientrequest_save')
     else:
         handle_client_request(client_telegram_id, call_argument)
+
+
+# def starthomework(usr):
+#     if 'message_to_delete' in current_users[usr].keys():
+#         message_to_delete = current_users[usr]['message_to_delete']
+#     else:
+#         current_users[usr]['message_to_delete'] = 0
+#         message_to_delete = current_users[usr]['message_to_delete']
+#
+#     question_options = {}
+#     user_homework_dict = current_users[usr]
+#     print(user_test_dict)
+#     requested_homework = current_users[usr]['homework']
+#     homework_data_dict = homework_dict[requested_homework]
+#     homework_convert = homework_data_dict['convert']
+#     homework_keys = homework_data_dict['keys']
+#     current_question_row = homework_convert.iloc[user_homework_dict[requested_homework]['current_question_index'],:]
+#     current_users[usr]['current_homework'] = requested_homework
+#     current_question_code = current_question_row['Number']
+#     current_question = current_question_row['Question']
+#     current_question_type = current_question_row['subscale']
+#     line = str(get_time() + ' ' + str(usr) + ' '
+#                + ' in homework ' + requested_homework + ' on question '
+#                + current_question_code + '\n')
+#     print(line)
+#     with open('log.txt', 'a', encoding='utf-8') as f:
+#         f.write(line)
+#         f.close()
+#     tb.send_message(3755631, line)
+#
+#     if current_question_type == 'text':
+#         if message_to_delete not in [-1, 0]:
+#             tb.delete_message(usr, message_to_delete)
+#         current_users[usr]['current_test'] = requested_test
+#         current_users[usr]['current_question_code'] = current_question_code
+#         gettextanswer = tb.send_message(usr, text = current_question)
+#         current_users[usr]['message_to_delete'] = gettextanswer.message_id
+#         tb.register_next_step_handler(gettextanswer, save_text_answer)
+#
+#     elif current_question_type == 'multiple':
+#         tb.send_message(usr, text = current_question)
+#         user_test_dict[requested_test]['current_question_index'] += 1
+#         current_users[usr] = user_test_dict
+#         question_generator(usr, test)
+#
+#     elif current_question_type == 'date':
+#         if message_to_delete not in [-1, 0]:
+#             tb.delete_message(usr, message_to_delete)
+#         current_users[usr]['current_test'] = requested_test
+#         current_users[usr]['current_question_code'] = current_question_code
+#         gettextanswer = tb.send_message(usr, text = current_question)
+#         current_users[usr]['message_to_delete'] = gettextanswer.message_id
+#         tb.register_next_step_handler(gettextanswer, check_answer)
+#
+#     else:
+#         if message_to_delete not in [-1, 0]:
+#             tb.delete_message(usr, message_to_delete)
+#         option_string = 'abcdefg'
+#         for option in option_string:
+#             if not pd.isnull(current_question_row[option]):
+#                 question_option_key = 'homeworkquestionanswered' + '_' + str(requested_homework)+ '_' + \
+#                                       str(current_question_code) + '_' + str(option)
+#                 question_option_value = current_question_row[option]
+#                 question_options[question_option_key] = question_option_value
+#         question_options['homeworkquestionanswered_' + str(requested_test) + '_' +
+#                          'qback' + '_' +
+#                          str(user_test_dict[requested_homework]['current_question_index'])] = 'К предыдущему вопросу'
+#         #question_options['testmenu'] = 'К меню с тестами'
+#         print(question_options)
+#         message_sent = tb.send_message(usr, text = current_question,
+#                                        reply_markup=makeQuestionKeyboard(question_options),
+#                                        parse_mode='HTML')
+#         current_users[usr]['message_to_delete'] = message_sent.message_id
 #
 #CallBack Handler
 
@@ -1404,6 +1546,9 @@ def call_from_coach(call):
     elif call.data.startswith('getreporttext_'):
         get_report(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, 'Отчёты')
+    elif call.data.startswith('givehomework_'):
+        givehomework(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, 'Домашнее задание задано')
     elif call.data.startswith('databasedump'):
         database_dump(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
