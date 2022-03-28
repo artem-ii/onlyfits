@@ -1151,11 +1151,12 @@ def handle_client(message):
             client_code = client_dataframe['client_code'].item()
             current_users[client_telegram_id]['client_code'] = client_code
             print(current_users[client_telegram_id]['client_code'])
-        client_main_keyboard = {"clientrequest_plan": "Запланировать",
-                                "clientrequest_diary": "Сделать запись",
-                                "clientrequest_homework": "Домашнее задание",
-                                "clientrequest_file": "Отправить файл",
-                                "clientrequest_report": "Посмотреть мои записи"}
+        client_main_keyboard = {"clientrequest_diary": "Сделать запись",}
+        # client_main_keyboard = {"clientrequest_plan": "Запланировать",
+        #                         "clientrequest_diary": "Сделать запись",
+        #                         "clientrequest_homework": "Домашнее задание",
+        #                         "clientrequest_file": "Отправить файл",
+        #                         "clientrequest_report": "Посмотреть мои записи"}
         message_sent = tb.send_message(client_telegram_id, "Выберите, пожалуйста, действие",
                                reply_markup=makeQuestionKeyboard(client_main_keyboard),
                                parse_mode="HTML")
