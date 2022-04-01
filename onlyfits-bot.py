@@ -362,11 +362,13 @@ def question_generator(usr, test):
         current_users[usr] = user_test_dict
         question_generator(usr, test)
 
-    elif current_question_type == 'date':
+    elif current_question_type == 'date'\
+            or current_question_type == 'weight':
         if message_to_delete not in [-1, 0]:
             tb.delete_message(usr, message_to_delete)
         current_users[usr]['current_test'] = requested_test
         current_users[usr]['current_question_code'] = current_question_code
+        current_users[usr]['current_question_type'] = current_question_type
         gettextanswer = tb.send_message(usr, text = current_question)
         current_users[usr]['message_to_delete'] = gettextanswer.message_id
         tb.register_next_step_handler(gettextanswer, check_answer)
@@ -393,6 +395,7 @@ def question_generator(usr, test):
 
 
 def check_answer(message):
+    #current_question_type = current_users[usr]['current_question_type']
     if '/' in message.text:
         save_text_answer(message)
     else:
@@ -404,6 +407,7 @@ def check_answer(message):
         current_test = current_users[message.from_user.id]['current_test']
         current_test_for_question_generator = 'totest_' + current_test
         question_generator(message.from_user.id, current_test_for_question_generator)
+
 
 
 def save_text_answer(message):
@@ -563,8 +567,8 @@ def where(usr):
         message_text = 'Отчёты консультаций клиента ' + trenerskaya[usr]['current_client']
         requested_client_code = trenerskaya[usr]['current_client']
         client_reports_folder = os.path.join(clients_folder,
-                               'consult_reports',
-                               requested_client_code)
+                                             'consult_reports',
+                                             requested_client_code)
         client_reports = os.listdir(client_reports_folder)
         if '.DS_Store' in client_reports:
             client_reports.remove('.DS_Store')
@@ -1202,9 +1206,10 @@ def handle_client_request(usr, request_call):
     client_telegram_id = usr
     action = request_call.split('_')[1]
     if action == 'diary':
-        client_action_keyboard = {"clientrequest_meal": "Приём пищи",
-                                  "clientrequest_activity": "Физическая активность",
-                                  "clientrequest_rec.comment": "Комментарий"}
+        client_action_keyboard = {"clientrequest_rec.comment": "Комментарий"}
+        # client_action_keyboard = {"clientrequest_meal": "Приём пищи",
+        #                           "clientrequest_activity": "Физическая активность",
+        #                           "clientrequest_rec.comment": "Комментарий"}
         client_diary_record = pd.DataFrame()
         client_diary_record['Дата'] = [get_time().split(' ')[0]]
         client_diary_record['Время'] = [get_time().split(' ')[1]]
