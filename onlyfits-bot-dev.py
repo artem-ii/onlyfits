@@ -14,10 +14,10 @@ from test_parser_for_bot import *
 from clients import *
 
 
-current_clients_db = 'current_clients.pkl'
-coaches_db = 'coaches_db.pkl'
+current_clients_db = 'current_clients_dev.pkl'
+coaches_db = 'coaches_db_dev.pkl'
 
-with open('current_clients.pkl', 'rb') as f:
+with open('current_clients_dev.pkl', 'rb') as f:
     current_users = pickle.load(f)
 
 print(current_users)
@@ -30,7 +30,7 @@ def get_time():
 
 TOKEN = "5118074175:AAGdSNqLzaRCEWw5wR1XNH_5v5wF1e8eq1M"
 testTOKEN = "288367920:AAEuc2Lqw94_jG3Qi0j_7Uqh4FSuGKHl-zw"
-tb = telebot.TeleBot(TOKEN)
+tb = telebot.TeleBot(testTOKEN)
 
 files_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/program-design-jan-2022/Материалы/resources/'
 clients_folder = '/Users/artemii/OneDrive/Documents/ONLYFITS/.03/'
@@ -288,7 +288,7 @@ def test_mainscreen(message):
         f.close()
     tb.send_message(3755631, line)
     if message.from_user.id not in current_users:
-        current_users[message.from_user.id] = {x: dict(responses = pd.DataFrame(), current_question_index = 0) for x in tests}
+        current_users[message.from_user.id] = {x: dict(responses=pd.DataFrame(), current_question_index=0) for x in tests}
         current_users[message.from_user.id]['log'] = str()
         current_users[message.from_user.id]['tests_to_do'] = tests
         current_users[message.from_user.id]['current_test'] = str()
