@@ -1180,7 +1180,8 @@ record_type_human_readable_dict = {'food': 'Еда',
                                    'activity': 'Физическая активность',
                                    'activtype': 'Тип активности',
                                    'activtime': 'Длительность активности',
-                                   'comment': 'Комментарии'
+                                   'comment': 'Комментарии',
+                                   'calories': 'Калории'
                                    }
 
 def handle_client_request(usr, request_call):
@@ -1206,10 +1207,9 @@ def handle_client_request(usr, request_call):
     client_telegram_id = usr
     action = request_call.split('_')[1]
     if action == 'diary':
-        client_action_keyboard = {"clientrequest_rec.comment": "Комментарий"}
-        # client_action_keyboard = {"clientrequest_meal": "Приём пищи",
-        #                           "clientrequest_activity": "Физическая активность",
-        #                           "clientrequest_rec.comment": "Комментарий"}
+        client_action_keyboard = {"clientrequest_meal": "Приём пищи",
+                                  "clientrequest_activity": "Физическая активность",
+                                  "clientrequest_rec.comment": "Комментарий"}
         client_diary_record = pd.DataFrame()
         client_diary_record['Дата'] = [get_time().split(' ')[0]]
         client_diary_record['Время'] = [get_time().split(' ')[1]]
@@ -1228,6 +1228,7 @@ def handle_client_request(usr, request_call):
         client_action_keyboard = {"clientrequest_rec.food": "Что вы съели?",
                                   "clientrequest_rec.place": "Где вы это съели?",
                                   "clientrequest_rec.foodcomment": "Комментарии",
+                                  "clientrequest_rec.calories": "Калории",
                                   "clientrequest_overeat": "Нажмите, если переели",
                                   "clientrequest_save": "Сохранить"
                                   }
