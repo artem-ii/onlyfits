@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from datetime import datetime
 import os
-import textwrap
+import textwrap as twp
 import pickle
 
 from test_parser_for_bot import *
@@ -288,7 +288,7 @@ def test_mainscreen(message):
         f.close()
     tb.send_message(3755631, line)
     if message.from_user.id not in current_users:
-        current_users[message.from_user.id] = {x: dict(responses = pd.DataFrame(), current_question_index = 0) for x in tests}
+        current_users[message.from_user.id] = {x: dict(responses=pd.DataFrame(), current_question_index=0) for x in tests}
         current_users[message.from_user.id]['log'] = str()
         current_users[message.from_user.id]['tests_to_do'] = tests
         current_users[message.from_user.id]['current_test'] = str()
@@ -1155,7 +1155,8 @@ def handle_client(message):
             client_code = client_dataframe['client_code'].item()
             current_users[client_telegram_id]['client_code'] = client_code
             print(current_users[client_telegram_id]['client_code'])
-        client_main_keyboard = {"clientrequest_diary": "Сделать запись",}
+        client_main_keyboard = {"clientrequest_diary": "Сделать запись",
+                                "clientrequest_report": "Посмотреть мои записи"}
         # client_main_keyboard = {"clientrequest_plan": "Запланировать",
         #                         "clientrequest_diary": "Сделать запись",
         #                         "clientrequest_homework": "Домашнее задание",
@@ -1299,64 +1300,102 @@ def handle_client_request(usr, request_call):
         for file in diary_files:
             if file == client_diary_filename:
                 client_diary_files.append(file)
-        print(client_diary_files)
+        print('client_diary_files ', client_diary_files)
         client_diary_file_path = os.path.join(diary_files_path, client_diary_filename)
         client_diary_dataframe = pd.read_csv(client_diary_file_path)
 
         diary_page = pd.DataFrame()
         for ind, diary_record in client_diary_dataframe.iterrows():
-            print(diary_record)
-            print(type(diary_record))
+            #print(diary_record)
+            #print(type(diary_record))
             record_date = diary_record['Дата']
             record_date = datetime.strptime(record_date, '%d/%m/%Y')
+            #print(type(record_date))
             diary_pages_list = [diary_page, diary_record.to_frame().T]
+            print('diary_page_list ', diary_pages_list)
             if len(diary_page) == 0:
+                print('diary_page empty, initiating...')
                 diary_page = diary_record.to_frame().T
             else:
                 diary_page = pd.concat(diary_pages_list, ignore_index=True)
-            print(diary_page)
+            print('diary_page ', diary_page)
             if ind == 0:
                 start_date = record_date
+                print('start_date1 ', start_date)
             elif (record_date - start_date).days == 7:
                 start_date_str = start_date.strftime('%d-%m-%Y')
                 record_date_str = record_date.strftime('%d-%m-%Y')
-                report_filename = start_date_str + ' - ' + record_date_str + '.pdf'
+                report_filename = start_date_str + ' - ' + record_date_str
                 current_users[usr]['diary_pdf_files'][report_filename] = diary_page
                 diary_page = pd.DataFrame()
-                try:
-                    start_date = client_diary_dataframe.loc[:, "Дата"]
-                    start_date = start_date.iloc[ind + 1, :]
-                    start_date = start_date.item()
-                    start_date = datetime.strptime(start_date, '%d/%m/%Y')
-                except:
-                    print(start_date)
+                #try:
+                start_date = client_diary_dataframe.loc[:, "Дата"]
+                print('start_date ', start_date)
+                start_date = start_date.iloc[(ind + 1)]
+                print('start_date ', start_date)
+                start_date = start_date
+                print('start_date ', start_date)
+                start_date = datetime.strptime(start_date, '%d/%m/%Y')
+                #except:
+                print('start_date2 ', start_date)
             elif ind == len(client_diary_dataframe)-1:
                 start_date_str = start_date.strftime('%d-%m-%Y')
                 record_date_str = record_date.strftime('%d-%m-%Y')
-                report_filename = start_date_str + ' - ' + record_date_str + '.pdf'
+                report_filename = start_date_str + ' - ' + record_date_str
                 current_users[usr]['diary_pdf_files'][report_filename] = diary_page
                 diary_page = pd.DataFrame()
                 current_users[usr]['diary_pdf_files'][report_filename].head()
-                print(current_users[usr]['diary_pdf_files'])
+                print('diary_pdf_files ', current_users[usr]['diary_pdf_files'])
+            report_index = 0
+            current_user_code = current_users[usr]['client_code']
+            os.makedirs(diary_files_path, exist_ok=True)
+            diary_files_path = os.path.join(clients_folder,
+                                            'diary_files', current_user_code)
+            existing_reports = os.listdir(diary_files_path)
+        for report in current_users[usr]['diary_pdf_files']:
+            #report = report.dropna()
+            report_df = current_users[usr]['diary_pdf_files'][report]
+            print(type(report))
+            # https://stackoverflow.com/questions/32137396/how-do-i-plot-only-a-table-in-matplotlib
+            fig, ax = plt.subplots(figsize=(12, 4))
+            ax.axis('tight')
+            ax.axis('off')
+            #print(type(report_df.values))
+            #print(report_df.values)
+            def wrap_values(lst):
+                value_list = list(lst)
+                wrapped_value_list = list()
+                for value in value_list:
+                    if isinstance(value, str):
+                        wrapped_value = twp.fill(value, 10)
+                        print(wrapped_value)
+                        wrapped_value_list.append(wrapped_value)
+                    else:
+                        wrapped_value_list.append(value)
+                return wrapped_value_list
+            value_array = report_df.values
+            wrapped_values = np.apply_along_axis(wrap_values, 1, value_array)
+            print(wrapped_values)
+            the_table = ax.table(cellText=wrapped_values, colLabels=report_df.columns, loc='center')
+            # https://stackoverflow.com/questions/4042192/reduce-left-and-right-margins-in-matplotlib-plot
+            for rp in existing_reports:
+                if rp.startswith(report[:9]):
+                    report_to_remove = os.path.join(diary_files_path, rp)
+                    os.remove(report_to_remove)
+            report_path = os.path.join(diary_files_path, report + '.pdf')
+            pp = PdfPages(report_path)
+            pp.savefig(fig, bbox_inches='tight')
+            pp.close()
+            report_excel_name = report + '.xlsx'
+            excel_report_path = os.path.join(diary_files_path, report_excel_name)
+            report_df.to_excel(excel_report_path)
 
-            for report in current_users[usr]['diary_pdf_files'].values():
-                #report = report.dropna()
-                print(type(report))
-                # https://stackoverflow.com/questions/32137396/how-do-i-plot-only-a-table-in-matplotlib
-                fig, ax = plt.subplots(figsize=(12, 4))
-                print(fig)
-                print(ax)
-                ax.axis('tight')
-                ax.axis('off')
-                the_table = ax.table(cellText=report.values, colLabels=report.columns, loc='center')
-
-                # https://stackoverflow.com/questions/4042192/reduce-left-and-right-margins-in-matplotlib-plot
-                pp = PdfPages("foo.pdf")
-                pp.savefig(fig, bbox_inches='tight')
-                pp.close()
-                report_path = os.path.join(bot_folder, 'foo.pdf')
-                doc = open(report_path, 'rb')
-                tb.send_document(usr, doc)
+        report_path_calls = ['sendreportfile_' + x for x in current_users[usr]['diary_pdf_files']]
+        report_names = current_users[usr]['diary_pdf_files'].keys()
+        keyboard_dict = dict(zip(report_path_calls, report_names))
+        print(keyboard_dict)
+        client_action_keyboard = keyboard_dict
+        #report_saved = True
     elif action == 'homework':
         starthomework(client_telegram_id)
     elif action.startswith('rec'):
@@ -1377,6 +1416,9 @@ def handle_client_request(usr, request_call):
         print('Overeat record made')
     elif save:
         print('Diary record saved')
+    #elif report_saved:
+    #    report_saved = False
+    #   print('Diary record saved')
     else:
         print('Menu generated')
         message_sent = tb.send_message(client_telegram_id, "Выберите, пожалуйста, вид записи",
@@ -1389,6 +1431,14 @@ def handle_client_request(usr, request_call):
         except:
             pass
 
+def send_report_file(usr, call):
+    report_file = call.split('_')[1] + '.xlsx'
+    current_user_code = current_users[usr]['client_code']
+    diary_files_path = os.path.join(clients_folder,
+                                    'diary_files', current_user_code)
+    report_file_path = os.path.join(diary_files_path, report_file)
+    excel_doc = open(report_file_path, 'rb')
+    tb.send_document(usr, excel_doc)
 
 def make_diary_record(message):
     client_telegram_id = message.from_user.id
@@ -1502,6 +1552,9 @@ def call_from_user(call):
     elif call.data.startswith('clientrequest_'):
         handle_client_request(call.from_user.id, call.data)
         tb.answer_callback_query(call.id, '\U0000231B')
+    elif call.data.startswith('sendreportfile_'):
+        send_report_file(call.from_user.id, call.data)
+        tb.answer_callback_query(call.id, '\U0000231B')
 
 # Обрабатывает нажатия кнопок кураторами
 @tb.callback_query_handler(func=lambda call: call.from_user.id in coaches.keys())
@@ -1588,3 +1641,4 @@ tb.load_next_step_handlers()
 # Get Updates
 tb.set_update_listener(handle_messages)
 tb.infinity_polling()
+
